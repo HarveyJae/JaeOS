@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.jsonc": "json",
+        "init.h": "c",
+        "rv64.h": "c",
+        "types.h": "c",
+        "asm.h": "c",
+        "param.h": "c"
+    }
+}
