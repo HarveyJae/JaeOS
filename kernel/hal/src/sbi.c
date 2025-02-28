@@ -39,21 +39,10 @@
  * - sbi_get_mvendorid()：获取厂商ID
  * ...更多扩展见官方文档
  * 
- * SBI通用封装调用：
- * #define SBI_CALL(ext, fn, a0, a1, a2, a3) ({ \
-    register uint64_t a7 asm ("a7") = (ext); \
-    register uint64_t a6 asm ("a6") = (fn); \
-    register uint64_t a0_r asm ("a0") = (a0); \
-    register uint64_t a1_r asm ("a1") = (a1); \
-    register uint64_t a2_r asm ("a2") = (a2); \
-    register uint64_t a3_r asm ("a3") = (a3); \
-    asm volatile ("ecall" \
-        : "+r" (a0_r), "+r" (a1_r) \
-        : "r" (a2_r), "r" (a3_r), "r" (a6), "r" (a7) \
-        : "memory" \
-    ); \
-    // 返回值通过 a0 和 a1 返回 \
-})
+ * SBI通用封装调用：见sbi.h的宏语句表达式实现
+ * 
+ * 
+ * 
  * Chapt:https://gitee.com/tinylab/riscv-linux/blob/master/articles/20230612-introduction-to-riscv-sbi.md
  * 
  * 官方文档：https://github.com/riscv-non-isa/riscv-sbi-doc
@@ -62,4 +51,3 @@
 
  #include "sbi.h"
 
- 
