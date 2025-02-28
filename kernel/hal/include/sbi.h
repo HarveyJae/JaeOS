@@ -123,6 +123,14 @@ static inline SBI_RET sbi_getchar(void)
 					 SBI_GET_CHAR,
 					 (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0);
 }
+/* Base Extension */
+/* 获取硬件架构 */
+static inline SBI_RET sbi_get_marchid(void)
+{
+	return sbi_ecall(SBI_BASE_EXTEXSION_ID,
+					 SBI_GET_MARCHID,
+					 (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0);
+}
 /**
  * 执行此函数后，函数会在stime_value时刻触发一次时钟中断
  * 注意是时刻而不是时间间隔，因此中断时需要将这个值刷新为“当前时间+中断间隔”
