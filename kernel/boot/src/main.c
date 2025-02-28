@@ -1,5 +1,5 @@
 #include "init.h"
-
+#include "main.h"
 /* 多核启动 */
 volatile static uint32_t hart_started[NCPU]; /* 确定哪个核已经被启动 */
 volatile static uint32_t hart_first = 1;     /* 首先被启动标志 */
@@ -25,6 +25,56 @@ void main(void)
         hart_first = 0;
         __sync_synchronize();                  /* 内存修改是多核可见的，也可以不写，因为有锁 */
         __sync_lock_release(&hart_start_lock); /* 释放锁，避免死锁 */
+        /* 初始化串口 */
+        uart_init();
+        /* 检测硬件架构 */
+        uint64_t marchid = sbi_get_marchid().value;
+        switch (marchid)
+        {
+        case 0x8000:
+        {
+            early_printf("Machine Arch is RISC-V 64-bit (RV64I).\n");
+            break;
+        }
+        case 0x8001:
+        {
+            early_printf("Machine Arch is RISC-V 32-bit (RV32I).\n");
+            break;
+        }
+        case 0x5b7:
+        {
+            early_printf("Machine Arch is SiFive U54-MC.\n");
+            break;
+        }
+        case 0x6001:
+        {
+            early_printf("Machine Arch is T-HEAD C906.\n");
+            break;
+        }
+        default:
+        {
+            early_printf("Machine Arch is Unknown.\n");
+            break;
+        }  
+        }
+        /* 检测启动核心 */
+        early_printf("JaeOS kernel is booting......\n");
+        early_printf("Now on Hart %d(Total:%d CPUs).\n", get_hartid(), NCPU);
+        /* 读取DTB */
+        #ifdef  USE_QEMU_VIRT
+        
+        #endif  //USE_QEMU_VIRT
+        /* 打印OS logo(即将启动成功之前) */
+        early_printf("\n");
+        early_printf("        JJJ         AAAAA  EEEEEEEEEE        .\"OOOOOOO\".    .SSSSSSSS.\n");
+        early_printf("        JJJ        AA  AA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
+        early_printf("        JJJ       AA   AA  EEE              OOO       OOO  SSSS.\n");
+        early_printf("        JJJ      AAA   AA  EEEEEEEEEE       OOO       OOO   \"SSSSS.\n");
+        early_printf("        JJJ     AAA    AA  EEEEEEEEEE       OOO       OOO      \"SSSS.\n");
+        early_printf(" JJ     JJJ    AAAAAAAAAA  EEE              OOO       OOO        \"SSS\n");
+        early_printf(" JJJJJJJJJJ   AAAA    AAA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
+        early_printf(" JJJJJJJJJJ  AAAAA    AAA  EEEEEEEEEE        \".OOOOOOO.\"     \"SSSSSSSS\"\n");
+        early_printf("\n");
     }
     else
     {

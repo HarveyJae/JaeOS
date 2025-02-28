@@ -9,6 +9,7 @@
         "sbi.h": "c",
         "uart.h": "c",
         "stdarg.h": "c",
-        "printf.h": "c"
+        "printf.h": "c",
+        "main.h": "c"
     }
 }
