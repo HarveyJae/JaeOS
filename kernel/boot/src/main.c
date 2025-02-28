@@ -8,7 +8,8 @@ volatile static hart_start_lock = 0;         /* 自选锁 */
 /**
  * __sync_synchronize()之前的所有内存操作都会在__sync_synchronize()之后的内存操作之前完成
  * __sync_synchronize()之前的内存操作对其他核心是可见的(结果可见或结果同步)
- * __sync_synchronize()不会确保多核并行指令之间的顺序性
+ * __sync_synchronize()不会确保多核并行指令之间的顺序性，对于原子指令还是可以使用的
+ * 对于非原子指令，最好使用锁，并且根据情况选择互斥锁或者自旋锁
  *
  */
 
@@ -24,10 +25,8 @@ void main(void)
         hart_first = 0;
         __sync_synchronize();                  /* 内存修改是多核可见的，也可以不写，因为有锁 */
         __sync_lock_release(&hart_start_lock); /* 释放锁，避免死锁 */
-        
     }
     else
     {
-
     }
 }

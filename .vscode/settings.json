@@ -5,6 +5,10 @@
         "rv64.h": "c",
         "types.h": "c",
         "asm.h": "c",
-        "param.h": "c"
+        "param.h": "c",
+        "sbi.h": "c",
+        "uart.h": "c",
+        "stdarg.h": "c",
+        "printf.h": "c"
     }
 }
