@@ -28,8 +28,12 @@ typedef struct
     uint64_t size;
 } MEM_INFO;
 /* 设备树标记值 */
+#define FDT_MAGIC 0xd00dfeed      /* 设备树头部魔数 */
 #define FDT_BEGIN_NODE 0x00000001 /* node起始标记 */
 #define FDT_END_NODE 0x00000002   /* node结束标记 */
 #define FDT_PROP 0x00000003       /* node中的属性开始标记 */
+#define FDT_NOP 0x00000004
 #define FDT_END 0x00000009
+
+int32_t dtb_prase(void);
 #endif /* !__DEV_DTB__H__ */
