@@ -12,7 +12,7 @@ volatile static hart_start_lock = 0;         /* 自选锁 */
  * 对于非原子指令，最好使用锁，并且根据情况选择互斥锁或者自旋锁
  *
  */
-
+extern MEM_INFO mem_info;
 void main(void)
 {
     while (__sync_lock_test_and_set(&hart_start_lock, 1) == 1)
@@ -55,15 +55,27 @@ void main(void)
         {
             early_printf("Machine Arch is Unknown.\n");
             break;
-        }  
+        }
         }
         /* 检测启动核心 */
         early_printf("JaeOS kernel is booting......\n");
         early_printf("Now on Hart %d(Total:%d CPUs).\n", get_hartid(), NCPU);
         /* 读取DTB */
-        #ifdef  USE_QEMU_VIRT
-        
-        #endif  //USE_QEMU_VIRT
+        dtb_prase();
+
+        /* 内存管理机制初始化 */
+
+        /* 核心初始化 */
+
+        /* 进程管理机制初始化 */
+
+        /* 其他初始化 */
+
+        /* 加载初始化进程 */
+
+        /* 启动其他核心 */
+
+        /* 所有核心完成初始化 */
         /* 打印OS logo(即将启动成功之前) */
         early_printf("\n");
         early_printf("        JJJ         AAAAA  EEEEEEEEEE        .\"OOOOOOO\".    .SSSSSSSS.\n");
@@ -75,8 +87,18 @@ void main(void)
         early_printf(" JJJJJJJJJJ   AAAA    AAA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
         early_printf(" JJJJJJJJJJ  AAAAA    AAA  EEEEEEEEEE        \".OOOOOOO.\"     \"SSSSSSSS\"\n");
         early_printf("\n");
+
+        /* 内核启动成功 */
     }
     else
     {
+        /* 非主核初始化 */
+        /* wait for kenerl init */
     }
+
+    /* 调度器初始化 */
+
+    /* JaeO启动成功 */
+    while (1)
+        ;
 }

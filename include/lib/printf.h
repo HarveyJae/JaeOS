@@ -1,7 +1,7 @@
 #ifndef __LIB_PRINTF__H__
 #define __LIB_PRINTF__H__
 
-#include "common/types.h"
+#include "types.h"
 
 #define BUFFER_SIZE 128
 #define NUM_MAX_WIDTH 32

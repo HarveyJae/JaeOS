@@ -1,7 +1,7 @@
 #ifndef __HAL_SBI__H__
 #define __HAL_SBI__H__
 
-#include "common/types.h"
+#include "../../../include/common/types.h"
 
 /* SBI的标准返回结构 */
 typedef struct

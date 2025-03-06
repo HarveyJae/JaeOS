@@ -1,7 +1,7 @@
 #ifndef __COMMON_RV64__H__
 #define __COMMON_RV64__H__
 
-#include "common/types.h"
+#include "types.h"
 /* RV64内联汇编指令 */
 /**
  * GCC扩展内联汇编支持:
@@ -24,13 +24,13 @@
 /* 获取当前核心的id */
 static inline uint64_t get_hartid(void)
 {
-	uint64_t hart_id;
-	asm volatile("csrr %[hart_id], mhartid" : [hart_id] "=r"(hart_id) :);
+	uint64_t hartid;
+	asm volatile("csrr %[hart_id], mhartid" : [hart_id] "=r"(hartid) :);
 	/* =r会约束编译器将hart_id变量分配到寄存器中，因此这里不需要声明memory */
 	/* 但是这个分配是随机的，编译器会随机选择通用寄存器进行分配 */
 	/* 如果想显示的分配到某个寄存器，需要将变量和寄存器显示关联 */
 	/* register uint64_t hart_id asm("a7")，这会将hart_id变量强制分配到a7寄存器 */
-	return hart_id;
+	return hartid;
 }
 
 /* 获取当前核心的运行模式 */

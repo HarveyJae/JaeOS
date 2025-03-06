@@ -1,6 +1,6 @@
 #ifndef __DEV_DTB__H__
 #define __DEV_DTB__H__
-#include "common/types.h"
+#include "types.h"
 
 /* 设备树头部结构体定义 */
 typedef struct

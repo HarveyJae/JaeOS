@@ -1,4 +1,4 @@
-#include "common/asm.h"
+#include "asm.h"
 #include "memory.h"
 .comm k_boot_stack, (NCPU * K_BOOT_STACK_SIZE)
 .section .text
