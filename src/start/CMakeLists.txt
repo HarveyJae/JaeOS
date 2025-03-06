@@ -1,0 +1,6 @@
+# 汇编文件编译成库
+set(START_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/start.S
+    ${CMAKE_CURRENT_SOURCE_DIR}/_main.c
+    PARENT_SCOPE
+)
