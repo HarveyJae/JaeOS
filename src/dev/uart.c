@@ -1,38 +1,89 @@
-#include "uart.h"
-#include "sbi.h"
+#include "common/types.h"
 
+#define USE_QEMU_VIRT
 
-#ifdef  USE_QEMU_VIRT
-void uart_putchar(int64_t ch)
+/* 使用qemu的virt模拟器*/
+#ifdef USE_QEMU_VIRT
+#define UART_BASE 0x10000000
+#define UART_TX 0x00
+#define UART_RX 0x04
+#define UART_TX_FULL_MASK 0x80000000
+#define UART_RX_EMPTY_MASK 0x80000000
+#define UART_RX_DATA_MASK 0x000000ff
+#define __io_br() \
+    do            \
+    {             \
+    } while (0) // 读操作前的屏障（此处为空）
+#define __io_ar() __asm__ __volatile__("fence i,r" : : : "memory"); // 读操作后的屏障
+#define __io_bw() __asm__ __volatile__("fence w,o" : : : "memory"); // 写操作前的屏障
+#define __io_aw() \
+    do            \
+    {             \
+    } while (0) // 写操作后的屏障（此处为空）
+/**
+ * @brief
+ *
+ * @param addr
+ * @return uint32_t
+ */
+static inline uint32_t __raw_readl(const volatile void *addr)
 {
-    sbi_putchar(ch);
+    uint32_t val;
+
+    asm volatile("lw %[val], 0(%[addr])" : [val] "=r"(val) : [addr] "r"(addr));
+    return val;
 }
-int64_t uart_getchar(void)
+/**
+ * @brief
+ *
+ * @param val
+ * @param addr
+ */
+static inline void __raw_writel(uint32_t val, volatile void *addr)
 {
-    return sbi_getchar().value;
+    asm volatile("sw %[val], 0(%[addr])" : : [val] "r"(val), [addr] "r"(addr));
 }
+/**
+ * @brief 
+ * 
+ */
+#define readl(c)	({ uint32_t __v; __io_br(); __v = __raw_readl(c); __io_ar(); __v; })
+/**
+ * @brief 
+ * 
+ */
+#define writel(v,c)	({ __io_bw(); __raw_writel((v),(c)); __io_aw(); })
+/**
+ * @brief
+ *
+ */
 void uart_init(void)
 {
-    /* 当使用QEMU的时候,初始化函数什么都不需要做 */
-    /* do nothing*/
-    /* 下面的代码仅测试用 */
-    uart_putchar('U');
-    uart_putchar('A');
-    uart_putchar('R');
-    uart_putchar('T');
-    uart_putchar(' ');
-    uart_putchar('I');
-    uart_putchar('n');
-    uart_putchar('i');
-    uart_putchar('t');
-    uart_putchar(' ');
-    uart_putchar('S');
-    uart_putchar('U');
-    uart_putchar('C');
-    uart_putchar('C');
-    uart_putchar('E');
-    uart_putchar('S');
-    uart_putchar('S');
-    uart_putchar('\n');
+    /* nothing to do*/
+    /* sbi help us init virt-uart*/
 }
-#endif  //USE_QEMU_VIRT
+/**
+ * @brief
+ *
+ * @return int
+ */
+int8_t uart_getchar(void)
+{
+    uint32_t *uart_rx = (uint32_t *)(UART_BASE + UART_RX);
+    uint32_t ret = readl(uart_rx);
+    /* No Data*/
+    if (ret & UART_RX_EMPTY_MASK)
+    {
+        return -1;
+    }
+    /* return DATA*/
+    return ret & UART_RX_DATA_MASK;
+}
+void uart_putchar(uint8_t ch)
+{
+    uint32_t *uart_tx = (uint32_t *)(UART_BASE + UART_TX);
+    while (readl(uart_tx) & UART_TX_FULL_MASK)
+        ;
+    writel(ch, uart_tx);
+}
+#endif // USE_QEMU_VIRT

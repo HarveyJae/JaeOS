@@ -1,7 +1,9 @@
 #include "start/main.h"
+#include "common/rv64.h"
+#include "dev/uart.h"
+#include "lib/printf.h"
 /* 多核启动 */
 volatile static uint32_t hart_started[NCPU]; /* 确定哪个核已经被启动 */
-volatile static uint32_t hart_first = 1;     /* 首先被启动标志 */
 volatile static uint32_t kern_inited = 0;    /* 核启动阻塞标志 */
 volatile static uint32_t hart_start_lock = 0;         /* 自选锁 */
 /**
@@ -14,6 +16,23 @@ volatile static uint32_t hart_start_lock = 0;         /* 自选锁 */
 // extern MEM_INFO mem_info;
 int main(void)
 {
+    /* 获取当前核心号*/
+    int64_t hart_id = read_tp();
+    /* 主核hart0*/
+    if (hart_id == 0L)
+    {
+        /* 初始化串口*/
+        uart_init();
+        early_printf("[JaeOS]UART Init Successful.\n");
+
+        /* Logo打印放到最后*/
+        logo_init();
+    }
+    /* 从核hartx*/
+    else
+    {
+
+    }
     // while (__sync_lock_test_and_set(&hart_start_lock, 1) == 1)
     //     ;
     // /* 原子的将lock设置为1，并返回旧值，如果返回0，则证明是获取锁的核心 */

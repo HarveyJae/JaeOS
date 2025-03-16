@@ -1,0 +1,4 @@
+set(LIB_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/printf.c
+    PARENT_SCOPE
+)

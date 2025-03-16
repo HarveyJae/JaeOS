@@ -1,0 +1,4 @@
+set(DEV_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/uart.c
+    PARENT_SCOPE
+)

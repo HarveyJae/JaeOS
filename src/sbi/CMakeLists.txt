@@ -1,0 +1,4 @@
+set(SBI_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/sbi.c
+    PARENT_SCOPE
+)

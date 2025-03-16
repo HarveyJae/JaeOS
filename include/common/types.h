@@ -13,6 +13,10 @@ typedef signed int int32_t;
 typedef signed short int16_t;
 typedef signed char int8_t;
 
+/* 寄存器类型*/
+/* RV-64对应64bit寄存器*/
+typedef uint64_t register_t;
+
 /* NULL定义 */
 #define NULL ((void *)0)
 

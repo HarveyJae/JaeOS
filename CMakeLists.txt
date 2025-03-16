@@ -13,7 +13,7 @@ set(CMAKE_OBJDUMP ${CROSS_COMPILE}objdump)
 # 架构选项
 set(RISCV_ARCH rv64g)
 set(RISCV_ABI lp64)
-list(APPEND ARCH_FLAGS "-march=${RISCV_ARCH}" "-mabi=${RISCV_ABI}")
+list(APPEND ARCH_FLAGS "-march=${RISCV_ARCH}" "-mabi=${RISCV_ABI}" "-mcmodel=medany") # -mcmodel=medany保证符号地址能正确链接
 # 编译选项
 list(APPEND CFLAGS ${ARCH_FLAGS} "-nostdlib" "-fno-builtin" "-g" "-Wall")
 list(APPEND ASMFLAGS ${ARCH_FLAGS} "-x" "assembler-with-cpp" "-nostdlib" "-fno-builtin" "-g" "-Wall") # 支持预编译器
@@ -129,7 +129,8 @@ add_custom_target(debug
 	COMMAND
 	${QEMU_EXECUTABLE} ${QFLAGS} 
 	-kernel $<TARGET_FILE:kernel.elf> 
-	-S -gdb tcp::1234 
+	-S -gdb tcp::1234
+	-bios default 
 	-serial mon:stdio
 	WORKING_DIRECTORY
 	${CMAKE_BINARY_DIR}
@@ -144,7 +145,10 @@ add_custom_target(gdb
 	COMMAND
 	${GDB_EXECUTABLE} 
 	-ex "target remote :1234"
+	-ex "thread 1.1"
 	-ex "break _start"
+	-ex "c"
+	-ex "layout split"
 	$<TARGET_FILE:kernel.elf>
 	COMMENT
 	"Connecting to QEMU GDB Server......"

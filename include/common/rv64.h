@@ -21,32 +21,98 @@
  * 注意，asm中的冒号之间的相对顺序不能变，如果没有输出或没有输入应用空白符表示，但冒号要有
  */
 
-/* 获取当前核心的id */
-static inline uint64_t get_hartid(void)
+/**
+ * @brief 获取当前核心的id，S-Mode下是非法指令
+ *
+ * @return uint64_t
+ */
+static inline uint64_t read_mhartid(void)
 {
 	uint64_t hartid;
-	asm volatile("csrr %[hart_id], mhartid" : [hart_id] "=r"(hartid) :);
+	asm volatile("csrr %[hart_id], mhartid" : [hart_id] "=r"(hartid) : :);
 	/* =r会约束编译器将hart_id变量分配到寄存器中，因此这里不需要声明memory */
 	/* 但是这个分配是随机的，编译器会随机选择通用寄存器进行分配 */
 	/* 如果想显示的分配到某个寄存器，需要将变量和寄存器显示关联 */
 	/* register uint64_t hart_id asm("a7")，这会将hart_id变量强制分配到a7寄存器 */
 	return hartid;
 }
-
-/* 获取当前核心的运行模式 */
-static inline uint64_t get_mode(void)
+/**
+ * @brief 获取当前核心的运行模式，S-Mode下是非法指令
+ *
+ *
+ * @return uint64_t
+ */
+static inline uint64_t read_mstatus(void)
 {
 	uint64_t mode;
 	asm volatile("csrr %[mode], mstatus" : [mode] "=r"(mode) :);
 	return mode;
 }
-
-/* 向tp寄存器中写入数据，默认情况下用来保存hartid*/
-static inline void write_tp(uint64_t x)
+/**
+ * @brief 更改当前核心的运行模式，S-Mode下是非法指令
+ *
+ * @param mode
+ */
+static inline void write_mstatus(uint64_t mode)
 {
-	asm volatile("mv tp, %[x]" : : [x] "r"(x));
+	asm volatile("csrw mstatus, %[mode]" : : [mode] "r"(mode));
 }
-
+/**
+ * @brief 写mepc寄存器，M-Mode的异常返回地址，可以配合mret实现模式切换，S-Mode下是非法指令
+ *
+ * @param addr
+ */
+static inline void write_mepc(uint64_t addr)
+{
+	asm volatile("csrw mepc, %[addr]" : : [addr] "r"(addr));
+}
+/**
+ * @brief 写medeleg寄存器，异常委托，S-Mode下是非法指令
+ *
+ * @param x
+ */
+static inline void write_medeleg(uint64_t x)
+{
+	asm volatile("csrw medeleg, %[x]" : : [x] "r"(x));
+}
+/**
+ * @brief 写mideleg寄存器，中断委托，S-Mode下是非法指令
+ *
+ * @param x
+ */
+static inline void write_mideleg(uint64_t x)
+{
+	asm volatile("csrw mideleg, %[x]" : : [x] "r"(x));
+}
+/**
+ * @brief 写satp寄存器，S-Mode指令
+ *
+ * @param x
+ */
+static inline void write_satp(uint64_t x)
+{
+	asm volatile("csrw satp, %[x]" : : [x] "r"(x));
+}
+/**
+ * @brief 向tp寄存器中写入数据，默认情况下用来保存hartid，U-Mode指令
+ *
+ * @param hart_id
+ */
+static inline void write_tp(uint64_t hart_id)
+{
+	asm volatile("mv tp, %[hart_id]" : : [hart_id] "r"(hart_id));
+}
+/**
+ * @brief 读取hartid，U-Mode指令
+ *
+ * @return uint64_t
+ */
+static inline uint64_t read_tp(void)
+{
+	uint64_t hart_id;
+	asm volatile("mv %[hart_id], tp" : [hart_id] "=r"(hart_id));
+	return hart_id;
+}
 /* S-mode层级的寄存器sie PG.94 */
 /**
  * |15 - 14|   13 |12 - 10| 9  |8 - 6| 5  |4 - 2| 1  | 0 |
@@ -76,10 +142,39 @@ static inline void write_stvec(uint64_t addr)
 	asm volatile("csrw stvec, %[addr]" : : [addr] "r"(addr));
 }
 
-static inline uint64_t r_stvec(void)
+static inline uint64_t read_stvec(void)
 {
 	uint64_t addr;
 	asm volatile("csrr %[addr], stvec" : [addr] "=r"(addr) :);
 	return addr;
+}
+/* S-mode层级的寄存器status*/
+#define SSTATUS_SPP_MASK (1L << 8)
+#define SSTATUS_SPIE_MASK (1L << 5)
+#define SSTATUS_UPIE_MASK (1L << 4)
+#define SSTATUS_SIE_MASK (1L << 1)
+#define SSTATUS_UIE_MASK (1L << 0)
+/**
+ * @brief 关闭S-Mode Interupt
+ * 
+ * @return uint64_t 
+ */
+static inline uint64_t disable_si(void)
+{
+	/* csrrc，原子读-清除-写指令，i表示立即数*/
+	/* 将原数据写入ret寄存器，清除立即数指定的位(0 - 31)*/
+	uint64_t ret;
+	asm volatile("csrrci %[ret], sstatus, %[sie_mask]" : [ret] "=&r"(ret) : [sie_mask] "i"(SSTATUS_SIE_MASK));
+	return (ret & (SSTATUS_SIE_MASK));
+	/* 返回之前SIE域的值*/
+}
+static inline uint64_t enable_si(void)
+{
+	/* csrrs，原子读-置位-写指令，i表示立即数*/
+	/* 将数据写入ret寄存器，置位立即数指定的位(0 - 31)*/
+	uint64_t ret;
+	asm volatile("csrrsi %[ret], sstatus, %[sie_mask]" : [ret] "=&r"(ret) : [sie_mask] "i"(SSTATUS_SIE_MASK));
+	return (ret & (SSTATUS_SIE_MASK));
+	/* 返回之前SIE域的值*/
 }
 #endif /* __COMMON_RV64__H__ */

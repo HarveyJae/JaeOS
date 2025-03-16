@@ -1,214 +1,405 @@
-#include "../include/printf.h"
 #include <stdarg.h>
-#include "uart.h"
+#include "common/types.h"
+#include "dev/uart.h"
 
-#ifdef USE_QEMU_VIRT
-void putchar(int8_t ch)
+static void print_char(char ch, int32_t length, int32_t ladjust)
 {
-    uart_putchar((int64_t)ch);
-}
-#endif // USE_QEMU_VIRT
+    int32_t i;
 
-/* 刷新缓冲区 */
-static void flush_buffer(int8_t *buf, int32_t *pos)
-{
-    for (int32_t i = 0; i < *pos; i++)
+    if (length < 1)
     {
-        putchar(buf[i]);
+        length = 1;
     }
-    *pos = 0;
-}
-/**
- * 强化数字打印
- * 输出缓冲区
- * num:待打印数字
- * base:进制
- * sign:有符号1 or 无符号0
- * min_width:宽度，最低不会低于该宽度
- * 宽度检测待补充：超出最大指定宽度发生错误
- * 目前该函数默认数字宽度不会越界
- */
-uint32_t print_number(int8_t *output_buffer, uint32_t *buffer_pos, uint64_t num, int8_t base, int8_t sign, int8_t min_width)
-{
-    static int8_t digits[] = "0123456789ABCDEF";
-    int8_t buffer[NUM_MAX_WIDTH];
-    uint8_t cnt = 0;           /* 对字符进行计数 */
-    uint8_t negative_flag = 0; /* 正负数标志 */
-    /* 有符号数负数 */
-    if (sign && (int64_t)num < 0)
+    const char space = ' ';
+    if (ladjust)
     {
-        negative_flag = 1;
-        /* 将负数转换为正数，最后额外补充负号 */
-        num = -(int64_t)num;
-    }
-    /* 将数字转换为字符串(逆序) */
-    while (num > 0)
-    {
-        buffer[cnt++] = digits[num % base];
-        num / base;
-    }
-    /* 添加负号 */
-    if (negative_flag)
-    {
-        buffer[cnt++] = '-';
-    }
-    /* 计算需要填充的空格数 */
-    int8_t padding = (int8_t)cnt - min_width - (negative_flag ? (int8_t)1 : (int8_t)0);
-    while (padding-- > 0)
-    {
-        buffer[cnt++] = ' ';
-    }
-
-    /* 写入输出缓冲区 */
-    while (--cnt >= 0)
-    {
-        if (buffer_pos >= BUFFER_SIZE)
+        uart_putchar(ch);
+        for (i = 1; i < length; i++)
         {
-            flush_buffer(output_buffer, buffer_pos);
+            uart_putchar(space);
         }
-        output_buffer[*buffer_pos] = buffer[cnt];
+    }
+    else
+    {
+        for (i = 0; i < length - 1; i++)
+        {
+            uart_putchar(space);
+        }
+        uart_putchar(ch);
     }
 }
-/**
- * vprintf支持缓冲区，缓冲区满刷新缓冲区
- * 暂不支持遇到换行符刷新缓冲区
- * 将缓冲区定义在栈中，后续可以优化到全局缓冲区
- * 后续实现printf函数的返回值应用
- */
-static void vprintf(const char *fmt, va_list args)
+static void print_num(uint64_t u, int32_t base, int32_t neg_flag, int32_t length,
+                      int32_t ladjust, uint8_t padc, int32_t upcase)
 {
+    /* algorithm :
+     *  1. prints the number from left to right in reverse form.
+     *  2. fill the remaining spaces with padc if length is longer than
+     *     the actual length
+     *     TRICKY : if left adjusted, no "0" padding.
+     *		    if negtive, insert  "0" padding between "0" and number.
+     *  3. if (!ladjust) we reverse the whole string including paddings
+     *  4. otherwise we only reverse the actual string representing the num.
+     */
 
-    int8_t output_buffer[BUFFER_SIZE]; /* 缓冲区 */
-    int32_t buffer_pos = 0;            /* 缓冲区结尾指针的下一位 */
-    uint8_t width = 0;                 /* 宽度修饰符 */
-    uint8_t long_flag = 0;             /* 是否使用L后缀 */
-    /* 遍历字符串 */
-    for (; *fmt; fmt++)
+    int32_t actualLength = 0;
+    char buf[length + 70];
+    char *p = buf;
+    int32_t i;
+
+    do
     {
-        if (*fmt != '%')
+        int32_t tmp = u % base;
+        if (tmp <= 9)
         {
-            if (buffer_pos >= BUFFER_SIZE)
+            *p++ = '0' + tmp;
+        }
+        else if (upcase)
+        {
+            *p++ = 'A' + tmp - 10;
+        }
+        else
+        {
+            *p++ = 'a' + tmp - 10;
+        }
+        u /= base;
+    } while (u != 0);
+
+    if (neg_flag)
+    {
+        *p++ = '-';
+    }
+
+    /* figure out actual length and adjust the maximum length */
+    actualLength = p - buf;
+    if (length < actualLength)
+    {
+        length = actualLength;
+    }
+
+    /* add padding */
+    if (ladjust)
+    {
+        padc = ' ';
+    }
+    if (neg_flag && !ladjust && (padc == '0'))
+    {
+        for (i = actualLength - 1; i < length - 1; i++)
+        {
+            buf[i] = padc;
+        }
+        buf[length - 1] = '-';
+    }
+    else
+    {
+        for (i = actualLength; i < length; i++)
+        {
+            buf[i] = padc;
+        }
+    }
+
+    /* prepare to reverse the string */
+    int32_t begin = 0;
+    int32_t end;
+    if (ladjust)
+    {
+        end = actualLength - 1;
+    }
+    else
+    {
+        end = length - 1;
+    }
+
+    /* adjust the string pointer */
+    while (end > begin)
+    {
+        char tmp = buf[begin];
+        buf[begin] = buf[end];
+        buf[end] = tmp;
+        begin++;
+        end--;
+    }
+    for (i = 0; i < length; i++)
+    {
+        uart_putchar(buf[i]);
+    }
+}
+void print_str(const char *s, int32_t length, int32_t ladjust)
+{
+    int32_t i;
+    int32_t len = 0;
+    const char *s1 = s;
+    while (*s1++)
+    {
+        len++;
+    }
+    if (length < len)
+    {
+        length = len;
+    }
+
+    if (ladjust)
+    {
+        for (i = 0; i < len; i++)
+        {
+            uart_putchar(s[i]);
+        }
+        for (i = len; i < length; i++)
+        {
+            uart_putchar(' ');
+        }
+    }
+    else
+    {
+        for (i = 0; i < length - len; i++)
+        {
+            uart_putchar(' ');
+        }
+        for (i = 0; i < len; i++)
+        {
+            uart_putchar(s[i]);
+        }
+    }
+}
+static void vprintfmt(const char *fmt, va_list ap)
+{
+    char c;
+    const char *s;
+    int64_t num;
+    int32_t i;
+
+    int32_t width;
+    int32_t long_flag; // output is long (rather than int)
+    int32_t neg_flag;  // output is negative
+    int32_t ladjust;   // output is left-aligned
+    uint8_t padc;      // padding char
+
+    /* ----- MOS EXERCISE 1 vprintfmt AFTER boot BEGIN ----- */
+    for (;;)
+    {
+        /* scan for the next '%' */
+        // ----- MOS BLANK BEGIN -----
+        int32_t length = 0;
+        s = fmt;
+        for (; *fmt != '\0'; fmt++)
+        {
+            if (*fmt != '%')
             {
-                /* 检查缓缓冲区是否满 */
-                /* 当buffer_pos = BUFFER_SIZE的时候，缓冲区满 */
-                flush_buffer(output_buffer, &buffer_pos);
+                length++;
             }
-            output_buffer[buffer_pos++] = *fmt;
-            continue;
-        }
-        else /* *fmt == '%'*/
-        {
-            fmt++; /* 跳过% */
-            /* 解析格式修饰符 */
-            /* 解析宽度:%5d */
-            while (*fmt >= '0' && *fmt <= '9')
+            else
             {
-                width = width * 10 + (*fmt - '0');
+                for (i = 0; i < length; i++)
+                {
+                    uart_putchar(s[i]);
+                }
+                length = 0;
                 fmt++;
-            }
-            /* 解析L标志 */
-            if (*fmt == 'L' || *fmt == 'l')
-            {
-                long_flag = 1;
-                fmt++;
-                if (*fmt == 'L' || *fmt == 'l')
-                {
-                    long_flag = 2;
-                    fmt++;
-                }
-            }
-            /* 处理格式字符 */
-            switch (*fmt)
-            {
-            case 's':
-            {
-                int8_t *s = va_arg(args, int8_t *);
-                while (*s && buffer_pos < BUFFER_SIZE)
-                {
-                    if (buffer_pos >= BUFFER_SIZE)
-                    {
-                        /* 检查缓缓冲区是否满 */
-                        flush_buffer(output_buffer, &buffer_pos);
-                    }
-                    output_buffer[buffer_pos++] = *s++;
-                }
-                break;
-            }
-            case 'c':
-            {
-                int8_t ch = va_arg(args, int32_t); /* 这里是否会有问题 */
-                if (buffer_pos >= BUFFER_SIZE)
-                {
-                    /* 检查缓缓冲区是否满 */
-                    flush_buffer(output_buffer, &buffer_pos);
-                }
-                output_buffer[buffer_pos++] = ch;
-                break;
-            }
-            case 'd':
-            {
-                /* 无论是L还是LL均以64位输出 */
-                int64_t num = long_flag ? va_arg(args, int64_t) : va_arg(args, int32_t);
-                print_number(output_buffer, &buffer_pos, num, 10, 1, width); /* 十进制有符号数 */
-                break;
-            }
-
-            case 'x':
-            case 'X':
-            {
-                uint64_t num = long_flag ? va_arg(args, uint64_t) : va_arg(args, uint32_t);
-                print_number(output_buffer, &buffer_pos, num, 16, 0, width); /* 十六进制无符号数 */
-                break;
-            }
-            case 'p':
-            {
-                void *p = va_arg(args, void *);
-                if (buffer_pos >= BUFFER_SIZE)
-                {
-                    /* 检查缓缓冲区是否满 */
-                    flush_buffer(output_buffer, &buffer_pos);
-                }
-                output_buffer[buffer_pos++] = '0';
-                if (buffer_pos >= BUFFER_SIZE)
-                {
-                    /* 检查缓缓冲区是否满 */
-                    flush_buffer(output_buffer, &buffer_pos);
-                }
-                output_buffer[buffer_pos++] = 'x';
-                print_number(output_buffer, &buffer_pos, p, 16, 0, 8); /* 固定长度为8的十六进制数 */
-                break;
-            }
-            case '%':
-            {
-                if (buffer_pos >= BUFFER_SIZE)
-                {
-                    /* 检查缓缓冲区是否满 */
-                    flush_buffer(output_buffer, &buffer_pos);
-                }
-                output_buffer[buffer_pos++] = '%';
-                break;
-            }
-            default: /* 该处应添加报错逻辑，目前 nothing to do */
                 break;
             }
         }
+        // ----- MOS BLANK END -----
+
+        /* flush the string found so far */
+        // ----- MOS BLANK BEGIN -----
+        for (i = 0; i < length; i++)
+        {
+            uart_putchar(s[i]);
+        }
+        // ----- MOS BLANK END -----
+
+        /* check "are we hitting the end?" */
+        // ----- MOS BLANK BEGIN -----
+        if (!*fmt)
+        {
+            break;
+        }
+        // ----- MOS BLANK END -----
+
+        /* we found a '%' */
+        // ----- MOS BLANK BEGIN -----
+        ladjust = 0;
+        padc = ' ';
+        // ----- MOS BLANK END -----
+
+        /* check format flag */
+        // ----- MOS BLANK BEGIN -----
+        if (*fmt == '-')
+        {
+            ladjust = 1;
+            padc = ' ';
+            fmt++;
+        }
+        else if (*fmt == '0')
+        {
+            ladjust = 0;
+            padc = '0';
+            fmt++;
+        }
+        // ----- MOS BLANK END -----
+
+        /* get width */
+        // ----- MOS BLANK BEGIN -----
+        width = 0;
+        while ((*fmt >= '0') && (*fmt <= '9'))
+        {
+            width = width * 10 + (*fmt) - '0';
+            fmt++;
+        }
+        // ----- MOS BLANK END -----
+
+        /* check for long */
+        // ----- MOS BLANK BEGIN -----
+        long_flag = 0;
+        while (*fmt == 'l')
+        {
+            long_flag = 1;
+            fmt++;
+        }
+        // ----- MOS BLANK END -----
+
+        neg_flag = 0;
+        switch (*fmt)
+        {
+        case 'b':
+            if (long_flag)
+            {
+                num = va_arg(ap, int64_t);
+            }
+            else
+            {
+                num = va_arg(ap, int32_t);
+            }
+            print_num(num, 2, 0, width, ladjust, padc, 0);
+            break;
+
+        case 'd':
+        case 'D':
+            if (long_flag)
+            {
+                num = va_arg(ap, int64_t);
+            }
+            else
+            {
+                num = va_arg(ap, int32_t);
+            }
+
+            /*
+             * Refer to other parts (case 'b', case 'o', etc.) and func 'print_num' to
+             * complete this part. Think the differences between case 'd' and the
+             * others. (hint: 'neg_flag').
+             */
+            // ----- MOS BLANK BEGIN -----
+            neg_flag = num < 0;
+            num = neg_flag ? -num : num;
+            print_num(num, 10, neg_flag, width, ladjust, padc, 0);
+            // ----- MOS BLANK END -----
+
+            break;
+
+        case 'o':
+        case 'O':
+            if (long_flag)
+            {
+                num = va_arg(ap, int64_t);
+            }
+            else
+            {
+                num = va_arg(ap, int32_t);
+            }
+            print_num(num, 8, 0, width, ladjust, padc, 0);
+            break;
+
+        case 'u':
+        case 'U':
+            if (long_flag)
+            {
+                num = va_arg(ap, int64_t);
+            }
+            else
+            {
+                num = va_arg(ap, int32_t);
+            }
+            print_num(num, 10, 0, width, ladjust, padc, 0);
+            break;
+
+        case 'x':
+        case 'p':
+            if (long_flag)
+            {
+                num = va_arg(ap, int64_t);
+            }
+            else
+            {
+                num = va_arg(ap, int32_t);
+            }
+            print_num(num, 16, 0, width, ladjust, padc, 0);
+            break;
+
+        case 'X':
+            if (long_flag)
+            {
+                num = va_arg(ap, int64_t);
+            }
+            else
+            {
+                num = va_arg(ap, int32_t);
+            }
+            print_num(num, 16, 0, width, ladjust, padc, 1);
+            break;
+
+        case 'c':
+            c = (char)va_arg(ap, int32_t);
+            print_char(c, width, ladjust);
+            break;
+
+        case 's':
+            s = (char *)va_arg(ap, char *);
+            print_str(s, width, ladjust);
+            break;
+
+        case '\0':
+            fmt--;
+            break;
+
+        default:
+            /* output this char as it is */
+            uart_putchar(*fmt);
+        }
+        fmt++;
     }
-    /* 刷新剩下的缓冲区 */
-    if (buffer_pos > 0)
-    {
-        flush_buffer(output_buffer, &buffer_pos);
-    }
+    /* ----- MOS EXERCISE END ----- */
 }
 /**
- * 内核初始化时的printf函数
- * 不支持线程安全
+ * @brief 用于内核启动阶段主核hart0初始化打印，调用stdarg标准库函数，不存在动态链接
+ *
+ * @param fmt
+ * @param ...
  */
 void early_printf(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    /* va_list va_start va_end是GCC编译器在stdarg.h中提供的处理可变参数的宏 */
-    /* va_list类型用于跟踪可变参数的位置，可变参数可能存储在整数寄存器/浮点数寄存器/栈中，因此需要三个位置的指针 */
-    vprintf(fmt, args);
-    va_end(args);
+    va_list ap;
+    va_start(ap, fmt);
+
+    /* 不加锁*/
+    vprintfmt(fmt, ap);
+    /* 不解锁*/
+
+    va_end(ap);
+}
+/**
+ * @brief 打印系统logo，内核启动完毕后打印
+ * 
+ */
+void logo_init(void)
+{
+    early_printf("\n"); 
+	early_printf("        JJJ         AAAAA  EEEEEEEEEE        .\"OOOOOOO\".    .SSSSSSSS.\n");
+	early_printf("        JJJ        AA  AA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
+	early_printf("        JJJ       AA   AA  EEE              OOO       OOO  SSSS.\n");
+	early_printf("        JJJ      AAA   AA  EEEEEEEEEE       OOO       OOO   \"SSSSS.\n");
+	early_printf("        JJJ     AAA    AA  EEEEEEEEEE       OOO       OOO      \"SSSS.\n");
+	early_printf(" JJ     JJJ    AAAAAAAAAA  EEE              OOO       OOO        \"SSS\n");
+	early_printf(" JJJJJJJJJJ   AAAA    AAA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
+	early_printf(" JJJJJJJJJJ  AAAAA    AAA  EEEEEEEEEE        \".OOOOOOO.\"     \"SSSSSSSS\"\n");
+	early_printf("\n");
 }

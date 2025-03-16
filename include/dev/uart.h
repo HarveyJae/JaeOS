@@ -1,10 +1,8 @@
 #ifndef __DEV_UART__H__
 #define __DEV_UART__H__
 
-#include "../../../include/common/types.h"
-#include "../../hal/include/sbi.h"
-#define USE_QEMU_VIRT
-void uart_putchar(int64_t ch);
-int64_t uart_getchar(void);
+#include "common/types.h"
 void uart_init(void);
+int8_t uart_getchar(void);
+void uart_putchar(uint8_t ch);
 #endif  /* !__DEV_UART__H__ */

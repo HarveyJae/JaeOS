@@ -2,12 +2,15 @@
 
 
 add_subdirectory(start)
-
+add_subdirectory(dev)
+add_subdirectory(lib)
 add_library(__main__ OBJECT "")
 target_sources(__main__ 
 	PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/main.c
     ${START_SOURCES}
+	${DEV_SOURCES}
+	${LIB_SOURCES}
 )
 target_compile_options(__main__
 	PRIVATE
