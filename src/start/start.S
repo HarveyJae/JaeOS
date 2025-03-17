@@ -30,6 +30,9 @@ bss_done:
         addi t1, t1, 1
         mul t0, t0, t1
         add sp, sp, t0
+        # 保存hart_id和dtb_entry
+        mv a2, a0
+        mv a3, a1
         # 跳转到C代码执行
         call _main
         j split
@@ -42,6 +45,8 @@ secondary:
         addi t1, t1, 1
         mul t0, t0, t1
         add sp, sp, t0
+        # 保存hart_id
+        mv a2, a0
         # 跳转到C代码执行
         call _main
 split:

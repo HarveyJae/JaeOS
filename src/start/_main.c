@@ -3,8 +3,7 @@
 /**
  * CPU当前运行在M-mode下
  */
-extern uint64_t dtb_entry;
-int main(void);
+int main();
 /**
  *
  */
@@ -21,7 +20,7 @@ void _trap(void)
  * @param _hart_id
  * @param _dtb_entry
  */
-void _main(int64_t _hart_id, uint64_t _dtb_entry)
+void _main()
 {
 	/* 关闭分页机制，虽然复位后改寄存器会自动关闭分页*/
 	/* 复位satp寄存器*/
@@ -34,14 +33,14 @@ void _main(int64_t _hart_id, uint64_t _dtb_entry)
 
 	/* dtb_entry在bss段中，这是不安全的，应该放到只有主核能操作的区域，或者将dtb的值保存到某个寄存器中*/
 	/* 由于主核会清空bss段，而清空的过程中从核会执行该函数，因此该函数只允许寄存器操作，不允许使用内核栈*/
+	/* 解决方案，不要污染a2和a3寄存器，在main函数中读取这两个寄存器，见启动代码*/
+	/* 后续需要完善清除bss代码，确保不同的核在清除完bss段之后再进入_main*/
 	// dtb_entry = _dtb_entry;
-
-	/* 在每个CPU的tp寄存器中保存hartid*/
-	write_tp(_hart_id);
 
 	/* S-Mode下的异常陷入位置*/
 	write_stvec((uint64_t)_trap);
 
 	/* call main*/
+	/* 将参数传递给main，main函数不需要返回地址，因此即使启动栈被清零，也没有影响*/
 	main();
 }

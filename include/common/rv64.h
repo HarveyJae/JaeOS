@@ -94,24 +94,26 @@ static inline void write_satp(uint64_t x)
 	asm volatile("csrw satp, %[x]" : : [x] "r"(x));
 }
 /**
- * @brief 向tp寄存器中写入数据，默认情况下用来保存hartid，U-Mode指令
- *
- * @param hart_id
- */
-static inline void write_tp(uint64_t hart_id)
-{
-	asm volatile("mv tp, %[hart_id]" : : [hart_id] "r"(hart_id));
-}
-/**
- * @brief 读取hartid，U-Mode指令
+ * @brief 读取a0寄存器，U-Mode指令，注意该指令只允许在内核启动过程中(s0，s1不能被污染)调用，opensbi会将hartid存储在s0寄存器中
  *
  * @return uint64_t
  */
-static inline uint64_t read_tp(void)
+static inline uint64_t read_hart_id(void)
 {
 	uint64_t hart_id;
-	asm volatile("mv %[hart_id], tp" : [hart_id] "=r"(hart_id));
+	asm volatile("mv %[hart_id], a2" : [hart_id] "=r"(hart_id));
 	return hart_id;
+}
+/**
+ * @brief 读取a1寄存器，U-Mode指令，注意该指令只允许在内核启动过程中(s0，s1不能被污染)调用，opensbi会将dtb_entry存储在s1寄存器中
+ *
+ * @return uint64_t
+ */
+static inline uint64_t read_dtb_entry(void)
+{
+	uint64_t dtb_entry;
+	asm volatile("mv %[dtb_entry], a3" : [dtb_entry] "=r"(dtb_entry));
+	return dtb_entry;
 }
 /* S-mode层级的寄存器sie PG.94 */
 /**

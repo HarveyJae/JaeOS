@@ -145,7 +145,6 @@ add_custom_target(gdb
 	COMMAND
 	${GDB_EXECUTABLE} 
 	-ex "target remote :1234"
-	-ex "thread 1.1"
 	-ex "break _start"
 	-ex "c"
 	-ex "layout split"
