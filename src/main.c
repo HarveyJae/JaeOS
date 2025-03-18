@@ -27,7 +27,9 @@ int main()
         early_printf("[JaeOS]UART Init Successful.\n");
         /* 读取设备树dtb*/
         uint64_t dtb_entry = read_dtb_entry();
+        /* 解析设备树dtb*/
         dtb_prase(dtb_entry);
+        
         /* Logo打印放到最后*/
         logo_init();
     }

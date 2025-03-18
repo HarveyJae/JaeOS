@@ -17,6 +17,7 @@ typedef struct
 /* 节点的属性结构 */
 typedef struct
 {
+    uint32_t tag;     /* 开始标签*/
     uint32_t len;     /* 属性值长度*/
     uint32_t nameoff; /* 属性名在字符串表的偏移*/
 } FDT_Node_Property;
@@ -36,4 +37,5 @@ typedef struct
 #define FDT_END 0x00000009
 
 void dtb_prase(uint64_t _dtb_entry);
+extern MEM_INFO mem_info;
 #endif /* !__DEV_DTB__H__ */

@@ -250,6 +250,7 @@ static void vprintfmt(const char *fmt, va_list ap)
         /* check for long */
         // ----- MOS BLANK BEGIN -----
         long_flag = 0;
+        /* 支持long long*/
         while (*fmt == 'l')
         {
             long_flag = 1;
@@ -300,11 +301,11 @@ static void vprintfmt(const char *fmt, va_list ap)
         case 'O':
             if (long_flag)
             {
-                num = va_arg(ap, int64_t);
+                num = va_arg(ap, uint64_t);
             }
             else
             {
-                num = va_arg(ap, int32_t);
+                num = va_arg(ap, uint32_t);
             }
             print_num(num, 8, 0, width, ladjust, padc, 0);
             break;
@@ -313,11 +314,11 @@ static void vprintfmt(const char *fmt, va_list ap)
         case 'U':
             if (long_flag)
             {
-                num = va_arg(ap, int64_t);
+                num = va_arg(ap, uint64_t);
             }
             else
             {
-                num = va_arg(ap, int32_t);
+                num = va_arg(ap, uint32_t);
             }
             print_num(num, 10, 0, width, ladjust, padc, 0);
             break;
@@ -326,11 +327,11 @@ static void vprintfmt(const char *fmt, va_list ap)
         case 'p':
             if (long_flag)
             {
-                num = va_arg(ap, int64_t);
+                num = va_arg(ap, uint64_t);
             }
             else
             {
-                num = va_arg(ap, int32_t);
+                num = va_arg(ap, uint32_t);
             }
             print_num(num, 16, 0, width, ladjust, padc, 0);
             break;
@@ -338,11 +339,11 @@ static void vprintfmt(const char *fmt, va_list ap)
         case 'X':
             if (long_flag)
             {
-                num = va_arg(ap, int64_t);
+                num = va_arg(ap, uint64_t);
             }
             else
             {
-                num = va_arg(ap, int32_t);
+                num = va_arg(ap, uint32_t);
             }
             print_num(num, 16, 0, width, ladjust, padc, 1);
             break;
