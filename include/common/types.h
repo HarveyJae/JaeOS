@@ -23,4 +23,10 @@ typedef uint64_t register_t;
 /* 页表项PTE定义 */
 typedef uint64_t pte_t;
 
+/**
+ * @brief 将地址向上对齐到指定边界
+ * @param a     原始地址
+ * @param align 对齐值（必须为 2 的幂）
+ */
+#define ADDRALIGN(a, align) (((a) + (align) - 1) & ~((align) - 1))
 #endif  /* !__COMMON_TYPES__H__ */

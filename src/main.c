@@ -3,6 +3,8 @@
 #include "dev/uart.h"
 #include "dev/dtb.h"
 #include "lib/printf.h"
+#include "mmu/pmm.h"
+extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)*/
 /* 多核启动 */
 volatile static uint32_t hart_started[NCPU];  /* 确定哪个核已经被启动 */
 volatile static uint32_t kern_inited = 0;     /* 核启动阻塞标志 */
@@ -29,7 +31,9 @@ int main()
         uint64_t dtb_entry = read_dtb_entry();
         /* 解析设备树dtb*/
         dtb_prase(dtb_entry);
-        
+
+        /* 初始化物理内存模块*/
+        pmmInit();
         /* Logo打印放到最后*/
         logo_init();
     }

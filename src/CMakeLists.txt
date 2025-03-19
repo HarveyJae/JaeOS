@@ -4,6 +4,7 @@
 add_subdirectory(start)
 add_subdirectory(dev)
 add_subdirectory(lib)
+add_subdirectory(mmu)
 add_library(__main__ OBJECT "")
 target_sources(__main__ 
 	PRIVATE
@@ -11,6 +12,7 @@ target_sources(__main__
     ${START_SOURCES}
 	${DEV_SOURCES}
 	${LIB_SOURCES}
+	${MMU_SOURCES}
 )
 target_compile_options(__main__
 	PRIVATE

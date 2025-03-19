@@ -137,7 +137,7 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
     /* 更新ptr*/
     ptr += name_length;
     /* 四字节对齐(字符串会破坏对齐规则)*/
-    ptr = (uint8_t *)(((uint64_t)ptr + 3) & ~3);
+    ptr = (uint8_t *)ADDRALIGN((uint64_t)ptr, 4);
 
     /* 打印node*/
     early_printf("       [Node]%s:\n", node_name);
@@ -183,7 +183,7 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
             /* 更新ptr*/
             ptr += sizeof(FDT_Node_Property) + fdt_prop->len - 4;
             /* 四字节对齐*/
-            ptr = (void *)(((uint64_t)ptr + 3) & ~3);
+            ptr = (uint8_t *)ADDRALIGN((uint64_t)ptr, 4);
             break;
         }
         case FDT_BEGIN_NODE:
