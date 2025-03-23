@@ -14,17 +14,17 @@ uint64_t pm_start = 0;
  * @brief 物理内存页数量
  *
  */
-uint64_t page_num = 0;
+int64_t page_num = 0;
 /**
  * @brief 已用的内存页数量
  *
  */
-uint64_t usedpage_num = 0;
+int64_t usedpage_num = 0;
 /**
  * @brief 未使用的内存页数量
  *
  */
-uint64_t leftpage_num = 0;
+int64_t leftpage_num = 0;
 /**
  * @brief 内存页数组
  *
@@ -36,7 +36,7 @@ Page *pages = NULL;
  */
 PageList free_list;
 
-extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)*/
+extern char end[]; /* .ld文件中定义的堆栈起始地址(JaeOS不区分堆栈)*/
 /**
  * @brief 内存区域初始化
  *
@@ -49,7 +49,7 @@ extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)
 static void *pm_init(uint64_t start_addr, uint64_t size, uint64_t *freemem_addr, const char *name)
 {
     /* 初始化区域大小页对齐*/
-    uint64_t _size = (uint64_t)ADDRALIGN(size, PAGE_SIZE);
+    uint64_t _size = (uint64_t)ADDRALIGNUP(size, PAGE_SIZE);
     /* 新的空闲内存起始地址*/
     *freemem_addr = start_addr + _size;
     early_printf("[JaeOS]%s Used: <0x%016lX> ~ <0x%016lX>\n", name, start_addr, *freemem_addr);
@@ -58,8 +58,6 @@ static void *pm_init(uint64_t start_addr, uint64_t size, uint64_t *freemem_addr,
 /**
  * @brief 空闲链表初始化
  *
- * @param page
- * @param page_num
  */
 static void freelist_init()
 {
@@ -84,7 +82,7 @@ static void freelist_insert(Page *_new)
 }
 
 /**
- * @brief 分配物理内存页
+ * @brief 分配物理内存页(是否需要加锁)
  *
  * @return Page*
  */
@@ -99,16 +97,16 @@ Page *alloc_page(void)
     page->prev->next = page->next;  // 前驱节点指向后继
     page->next->prev = page->prev;  // 后继节点指向前驱
     page->next = page->prev = NULL; // 隔离已分配页
-    /* 更新状态*/
-    page->ref = 1;
     /* 分配前清空当前页的数据*/
     memset((void *)Page2Pa(page), 0, PAGE_SIZE);
+    /* 更新剩余页状态*/
+    __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
     return page;
 }
 /**
- * @brief 释放物理内存页
+ * @brief 释放物理内存页(是否需要加锁)
  *
- * @param page
+ * @param page 内存页结构体指针
  */
 void free_page(Page *page)
 {
@@ -118,8 +116,37 @@ void free_page(Page *page)
     free_list.next->prev = page;
     free_list.next = page;
 
-    /* 更新状态*/
-    page->ref = 0;
+    /* 更新剩余页状态*/
+    __atomic_fetch_add(&leftpage_num, 1, __ATOMIC_RELAXED);
+}
+/**
+ * @brief 增加页面的引用计数
+ *
+ * @param _page
+ */
+void page_ref_inc(Page *_page)
+{
+    if (_page == NULL)
+    {
+        while (1)
+            ;
+    }
+    /* 需要确保原子性：原子递增*/
+    __atomic_fetch_add(&(_page->ref), 1, __ATOMIC_RELAXED);
+}
+void page_ref_dec(Page *_page)
+{
+    if (_page == NULL || _page->ref == 0)
+    {
+        while (1)
+            ;
+    }
+    /* 需要确保原子性：原子递减*/
+    __atomic_fetch_sub(&(_page->ref), 1, __ATOMIC_RELAXED);
+    if (_page->ref == 0)
+    {
+        free_page(_page);
+    }
 }
 /**
  * @brief 物理内存管理模块初始化
@@ -127,9 +154,8 @@ void free_page(Page *page)
  */
 void pmmInit(void)
 {
-    early_printf("[JaeOS]Physical Memory Init Start: 0x%0lX\n", end);
     /* 空闲内存页的起始地址(4KB页对齐)*/
-    uint64_t freemem_start_addr = (uint64_t)ADDRALIGN((uint64_t)end, PAGE_SIZE);
+    uint64_t freemem_start_addr = (uint64_t)ADDRALIGNUP((uint64_t)end, PAGE_SIZE);
     pm_start = freemem_start_addr;
     uint64_t freemem_size = mem_info.size - (freemem_start_addr - mem_info.start);
     /* 已考虑OpenSBI占用的内存，包括内存页数组所占页*/
@@ -173,7 +199,7 @@ void pmmInit(void)
     // kstacks = pmInitPush(freemem, NPROC * TD_KSTACK_PAGE_NUM * PAGE_SIZE, &freemem);
 
     /* 确保freemem_start_addr 4KB对齐*/
-    freemem_start_addr = (uint64_t)ADDRALIGN(freemem_start_addr, PAGE_SIZE);
+    freemem_start_addr = (uint64_t)ADDRALIGNUP(freemem_start_addr, PAGE_SIZE);
     /* 已经使用的内存页数量*/
     usedpage_num = (freemem_start_addr - pm_start) / PAGE_SIZE;
     /* 初始化空闲链表*/

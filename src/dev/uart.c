@@ -1,15 +1,6 @@
 #include "common/types.h"
-
-#define USE_QEMU_VIRT
-
-/* 使用qemu的virt模拟器*/
-#ifdef USE_QEMU_VIRT
-#define UART_BASE 0x10000000
-#define UART_TX 0x00
-#define UART_RX 0x04
-#define UART_TX_FULL_MASK 0x80000000
-#define UART_RX_EMPTY_MASK 0x80000000
-#define UART_RX_DATA_MASK 0x000000ff
+#include "dev/uart.h"
+#include "mmu/mmu.h"
 #define __io_br() \
     do            \
     {             \
@@ -69,7 +60,7 @@ void uart_init(void)
  */
 int8_t uart_getchar(void)
 {
-    uint32_t *uart_rx = (uint32_t *)(UART_BASE + UART_RX);
+    uint32_t *uart_rx = (uint32_t *)(UART0_BASE + UART_RX);
     uint32_t ret = readl(uart_rx);
     /* No Data*/
     if (ret & UART_RX_EMPTY_MASK)
@@ -81,9 +72,8 @@ int8_t uart_getchar(void)
 }
 void uart_putchar(uint8_t ch)
 {
-    uint32_t *uart_tx = (uint32_t *)(UART_BASE + UART_TX);
+    uint32_t *uart_tx = (uint32_t *)(UART0_BASE + UART_TX);
     while (readl(uart_tx) & UART_TX_FULL_MASK)
         ;
     writel(ch, uart_tx);
 }
-#endif // USE_QEMU_VIRT

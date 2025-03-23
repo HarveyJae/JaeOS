@@ -14,14 +14,21 @@ typedef struct Page
 } Page;
 typedef Page PageList;
 
+/* functions*/
+void pmmInit(void);
+Page *alloc_page(void);
+void free_page(Page *page);
+void page_ref_inc(Page *_page);
+void page_ref_dec(Page *_page);
 /* data*/
-extern uint64_t pm_start;
-extern uint64_t page_num;
-extern Page *pages;
+extern uint64_t pm_start; /* 内存页起始物理地址*/
+extern int64_t page_num; /* 内存页数量*/
+extern Page *pages;       /* 内存页数组*/
+
 /* 接口函数*/
 /**
  * @brief 获取物理页的物理页号(索引值)
- * 
+ *
  */
 static inline uint64_t __attribute__((warn_unused_result)) Page2Ppn(Page *p)
 {
@@ -29,7 +36,7 @@ static inline uint64_t __attribute__((warn_unused_result)) Page2Ppn(Page *p)
 }
 /**
  * @brief 获取物理页的起始物理地址
- * 
+ *
  */
 static inline uint64_t __attribute__((warn_unused_result)) Page2Pa(Page *p)
 {
@@ -37,7 +44,7 @@ static inline uint64_t __attribute__((warn_unused_result)) Page2Pa(Page *p)
 }
 /**
  * @brief 获取物理地址对应的物理页
- * 
+ *
  */
 static inline Page *__attribute__((warn_unused_result)) Pa2Page(uint64_t pa)
 {
@@ -45,13 +52,12 @@ static inline Page *__attribute__((warn_unused_result)) Pa2Page(uint64_t pa)
 }
 /**
  * @brief 获取物理内存的顶部地址
- * 
+ *
  */
 static inline uint64_t __attribute__((warn_unused_result)) pmTop()
 {
     return pm_start + (page_num * PAGE_SIZE);
 }
 
-/* functions*/
-void pmmInit(void);
+
 #endif /* !__MMU_PMM__H__*/

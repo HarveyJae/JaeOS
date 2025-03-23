@@ -27,7 +27,6 @@ typedef struct
 #define SBI_BASE_EXTEXSION_ID 0x10				  /* 基础扩展*/
 #define SBI_TIMER_EXTENSION_ID 0x54494D52		  /* 定时器扩展*/
 #define SBI_IPI_EXTENSION_ID 0x735049			  /* 核间中断扩展*/
-#define SBI_DEBUG_CONSOLE_EXTENSION_ID 0x4442434E /* 控制台扩展*/
 #define SBI_RFENCE_EXTEXSION_ID 0x52464E43		  /* 内存一致性扩展*/
 #define SBI_HSM_EXTEXSION_ID 0x48534D			  /* 多核管理扩展*/
 #define SBI_SRST_EXTEXSION_ID 0x53525354		  /* 系统复位扩展*/
@@ -41,9 +40,6 @@ typedef struct
 #define SBI_GET_MVENDORID 4	   /* 获取机器厂商ID */
 #define SBI_GET_MARCHID 5	   /* 获取机器架构ID */
 #define SBI_GET_MIMPID 6	   /* 获取机器实现ID */
-/* DEBUG_CONSOLE_EXTENSION*/
-#define SBI_PUT_CHAR 0 /* 向SBI控制的串口输出字符 */
-#define SBI_GET_CHAR 1 /* 从SBI控制的串口中获取字符 */
 /* TIMER_EXTENSION*/
 #define SBI_SET_TIMER 0 /* 设置定时器的中断时间 */
 /* IPI_EXTENSION*/
@@ -83,20 +79,6 @@ static inline SBI_RET sbi_ecall(uint64_t ext_id, uint64_t func_id, uint64_t a0, 
 				 : [__ext_id] "r"(__ext_id), [__func_id] "r"(__func_id), [__a2] "r"(__a2), [__a3] "r"(__a3), [__a4] "r"(__a4)
 				 : "memory");
 	return (SBI_RET){error, value};
-}
-/* 串口控制 */
-static inline SBI_RET sbi_putchar(uint64_t ch)
-{
-	return sbi_ecall(SBI_DEBUG_CONSOLE_EXTENSION_ID,
-					 SBI_PUT_CHAR,
-					 ch,
-					 (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0);
-}
-static inline SBI_RET sbi_getchar(void)
-{
-	return sbi_ecall(SBI_DEBUG_CONSOLE_EXTENSION_ID,
-					 SBI_GET_CHAR,
-					 (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0, (uint64_t)0);
 }
 /* Base Extension */
 /* 获取硬件架构 */

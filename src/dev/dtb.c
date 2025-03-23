@@ -137,7 +137,7 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
     /* 更新ptr*/
     ptr += name_length;
     /* 四字节对齐(字符串会破坏对齐规则)*/
-    ptr = (uint8_t *)ADDRALIGN((uint64_t)ptr, 4);
+    ptr = (uint8_t *)ADDRALIGNUP((uint64_t)ptr, 4);
 
     /* 打印node*/
     early_printf("       [Node]%s:\n", node_name);
@@ -183,7 +183,7 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
             /* 更新ptr*/
             ptr += sizeof(FDT_Node_Property) + fdt_prop->len - 4;
             /* 四字节对齐*/
-            ptr = (uint8_t *)ADDRALIGN((uint64_t)ptr, 4);
+            ptr = (uint8_t *)ADDRALIGNUP((uint64_t)ptr, 4);
             break;
         }
         case FDT_BEGIN_NODE:
@@ -260,5 +260,4 @@ void dtb_prase(uint64_t _dtb_entry)
     /* 打印全局内存信息*/
     early_printf("[JaeOS]Memory Info:\n");
     early_printf("       Start: 0x%016lX, Size:%lu MB\n", mem_info.start, mem_info.size / 1024 / 1024);
-    early_printf("[JaeOS]DTB Parse Successful.\n");
 }

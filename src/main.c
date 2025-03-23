@@ -4,6 +4,7 @@
 #include "dev/dtb.h"
 #include "lib/printf.h"
 #include "mmu/pmm.h"
+#include "mmu/vmm.h"
 extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)*/
 /* 多核启动 */
 volatile static uint32_t hart_started[NCPU];  /* 确定哪个核已经被启动 */
@@ -26,14 +27,23 @@ int main()
     {
         /* 初始化串口*/
         uart_init();
-        early_printf("[JaeOS]UART Init Successful.\n");
-        /* 读取设备树dtb*/
-        uint64_t dtb_entry = read_dtb_entry();
+        early_printf("\n[JaeOS]UART Init Successful.\n");
+
         /* 解析设备树dtb*/
+        early_printf("\n[JaeOS]DTB Parse Start.\n");
+        uint64_t dtb_entry = read_dtb_entry();
         dtb_prase(dtb_entry);
+        early_printf("[JaeOS]DTB Parse Successful.\n");
 
         /* 初始化物理内存模块*/
+        early_printf("\n[JaeOS]Physical Memory Init Start.\n");
         pmmInit();
+        early_printf("[JaeOS]Physical Memory Init Successful.\n");
+        
+        /* 初始化虚拟内存模块*/
+        early_printf("\n[JaeOS]Virtual Memory Init Start.\n");
+        vmmInit();
+        early_printf("[JaeOS]Virtual Memory Init Successful.\n");
         /* Logo打印放到最后*/
         logo_init();
     }

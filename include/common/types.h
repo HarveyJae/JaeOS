@@ -1,17 +1,22 @@
 #ifndef __COMMON_TYPES__H__
 #define __COMMON_TYPES__H__
 
-/* 无符号类型 */
+/* 无符号类型*/
 typedef unsigned long uint64_t;
 typedef unsigned int uint32_t;
 typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
 
-/* 有符号类型 */
+/* 有符号类型*/
 typedef signed long int64_t;
 typedef signed int int32_t;
 typedef signed short int16_t;
 typedef signed char int8_t;
+
+/* bool类型*/
+typedef uint8_t bool;
+#define true 1
+#define false 0
 
 /* 寄存器类型*/
 /* RV-64对应64bit寄存器*/
@@ -26,7 +31,14 @@ typedef uint64_t pte_t;
 /**
  * @brief 将地址向上对齐到指定边界
  * @param a     原始地址
- * @param align 对齐值（必须为 2 的幂）
+ * @param align 对齐值(必须为 2 的幂)
  */
-#define ADDRALIGN(a, align) (((a) + (align) - 1) & ~((align) - 1))
-#endif  /* !__COMMON_TYPES__H__ */
+#define ADDRALIGNUP(a, align) (((a) + (align) - 1) & ~((align) - 1))
+/**
+ * @brief 将地址向下对齐到指定边界(获取当前地址所在页面的起始地址)
+ * @param a     原始地址
+ * @param align 对齐值(必须为 2 的幂)
+ */
+#define ADDRALIGNDOWN(a, align) (((a)) & ~((align) - 1))
+
+#endif /* !__COMMON_TYPES__H__ */

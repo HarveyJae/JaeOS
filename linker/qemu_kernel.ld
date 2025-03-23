@@ -7,9 +7,11 @@ SECTIONS
     . = 0x80200000;
     .text : 
     {
+        PROVIDE(__text_start = .); /*text段结开始地址，等于0x80200000*/
         *(.text.boot) /*确保启动代码链接在最前面*/
         *(.text .text.*)
         . = ALIGN(0x1000); /*4KB字节对齐*/
+        PROVIDE(__text_end = .); /*text段结束地址*/
     }
     .rodata : 
     {
@@ -20,7 +22,7 @@ SECTIONS
     }
     .data : 
     {
-                . = ALIGN(16); /*16字节对齐*/
+        . = ALIGN(16); /*16字节对齐*/
         *(.sdata .sdata.*)
         . = ALIGN(16);
         *(.data .data.*)
