@@ -5,6 +5,7 @@
 #include "lib/printf.h"
 #include "mmu/pmm.h"
 #include "mmu/vmm.h"
+#include "trap/trap.h"
 extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)*/
 /* 多核启动 */
 volatile static uint32_t hart_started[NCPU];  /* 确定哪个核已经被启动 */
@@ -25,6 +26,8 @@ int main()
     /* 主核hart0*/
     if (hart_id == 0L)
     {
+        /* 打印Hart id*/
+
         /* 初始化串口*/
         uart_init();
         early_printf("\n[JaeOS]UART Init Successful.\n");
@@ -44,6 +47,14 @@ int main()
         early_printf("\n[JaeOS]Virtual Memory Init Start.\n");
         vmmInit();
         early_printf("[JaeOS]Virtual Memory Init Successful.\n");
+
+        /* 使能页表*/
+        vm_enable();
+        early_printf("\n[JaeOS]VM Enable Successful.\n");
+
+        /* 设置异常向量表*/
+        set_trap_handle();
+        early_printf("\n[JaeOS]Set Trap Vector Successful.\n");
         /* Logo打印放到最后*/
         logo_init();
     }

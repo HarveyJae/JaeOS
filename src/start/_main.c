@@ -1,13 +1,11 @@
 #include "common/types.h"
 #include "common/rv64.h"
+extern int main();
+
 /**
- * CPU当前运行在M-mode下
+ * @brief 临时异常处理函数
+ * 
  */
-int main();
-/**
- *
- */
-/* 陷阱函数 */
 void _trap(void)
 {
 	while (1)
@@ -37,7 +35,7 @@ void _main()
 	/* 后续需要完善清除bss代码，确保不同的核在清除完bss段之后再进入_main*/
 	// dtb_entry = _dtb_entry;
 
-	/* S-Mode下的异常陷入位置*/
+	/* 设置临时异常陷入地址*/
 	write_stvec((uint64_t)_trap);
 
 	/* call main*/

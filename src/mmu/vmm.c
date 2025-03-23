@@ -178,7 +178,7 @@ static void map_pa2va(uint64_t pa, uint64_t va, uint64_t len, uint64_t perm)
  * @brief 开启虚拟内存管理
  * 
  */
-static void vm_enable(void)
+void vm_enable(void)
 {
     uint64_t satp_mode = 8ul << SATP_MODE_SHIFT;
     uint64_t satp_ppn = (kernel_root_pte_pa >> PAGE_SHIFT) & PTE_PPN_MASK;
@@ -216,8 +216,4 @@ void vmmInit(void)
     /* 内核数据段*/
     map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE, PTE_R | PTE_W);
     early_printf("[JaeOS]KERNEL_DATA Map Successful.\n");
-
-    /* 开启虚拟内存*/
-    vm_enable();
-    early_printf("[JaeOS]VM Enable Successful.\n");
 }
