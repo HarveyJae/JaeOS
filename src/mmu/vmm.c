@@ -5,11 +5,12 @@
 #include "mmu/pmm.h"
 #include "sbi/sbi.h"
 #include "lib/printf.h"
+#include "common/rv64.h"
 /**
- * @brief 内核虚拟地址空间的三级页表(根页表 level 2)的地址(第一个页表项)
+ * @brief 内核虚拟地址空间的三级页表(根页表 level 2)第一个pte(只有一个pte)指向的物理页的PPN
  *
  */
-uint64_t kernel_root_pt;
+uint64_t kernel_root_pte_pa;
 /* .text作为内核代码段*/
 extern char __text_end[]; /* .ld文件中定义的.text段结束地址*/
 /**
@@ -112,6 +113,7 @@ static void pte_modify(pte_t *pte, pte_t value)
 static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t create_flag)
 {
     /* 获取顶级页表(页表的第一个pte)*/
+    /* 同时，根页表只有一个页表项*/
     pte_t *current_pt = (pte_t *)page_table_address;
 
     /* 遍历三级页表(level 2 -> level 1 -> level 0)*/
@@ -166,11 +168,23 @@ static void map_pa2va(uint64_t pa, uint64_t va, uint64_t len, uint64_t perm)
     /* 按页遍历内存区域*/
     for (uint64_t i = 0; i < len; i += PAGE_SIZE)
     {
-        pte_t *temp_pte = walk_page_table(kernel_root_pt, va + i, true);
+        pte_t *temp_pte = walk_page_table(kernel_root_pte_pa, va + i, true);
         /* 映射*/
         *temp_pte = (Pa2Pte(pa + i) | perm | PTE_V);
     }
     /* 当前不支持大页映射*/
+}
+/**
+ * @brief 开启虚拟内存管理
+ * 
+ */
+static void vm_enable(void)
+{
+    uint64_t satp_mode = 8ul << SATP_MODE_SHIFT;
+    uint64_t satp_ppn = (kernel_root_pte_pa >> PAGE_SHIFT) & PTE_PPN_MASK;
+
+    /* 写satp寄存器*/
+    write_satp(satp_mode | satp_ppn);
 }
 /**
  * @brief
@@ -179,9 +193,11 @@ static void map_pa2va(uint64_t pa, uint64_t va, uint64_t len, uint64_t perm)
 void vmmInit(void)
 {
     /* 获取内核虚拟地址空间的根页表*/
-    /* 根页表只有一个页表项，将物理地址转换为pte_t类型的指针即可*/
-    kernel_root_pt = Page2Pa(alloc_page());
-    early_printf("[JaeOS]kernel_root_pt:%016lX\n", kernel_root_pt);
+    /* 根页表只有一个页表项，这里直接获取跟页表项的PPN(物理地址)*/
+    /* 根页表pte指向的物理页必须是4KB对齐，在初始化pmm时，已经确保了所有物理页地址都是4KB对齐*/
+    kernel_root_pte_pa = Page2Pa(alloc_page());
+    early_printf("[JaeOS]kernel_root_pt:%016lX\n", kernel_root_pte_pa);
+
     /* MMIO，内存映射I/O*/
     /* 硬件MMIO：将硬件设备的寄存器或内存映射到物理地址空间中，使得CPU可以直接通过内存读写指令访问硬件设备，这一步主要由硬件厂商负责*/
     /* 软件MMIO：建立虚拟地址到设备物理地址的映射，当CPU的satp寄存器被启用后，所有的内存访问(包括内核)都必须经过页表的转换*/
@@ -200,4 +216,8 @@ void vmmInit(void)
     /* 内核数据段*/
     map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE, PTE_R | PTE_W);
     early_printf("[JaeOS]KERNEL_DATA Map Successful.\n");
+
+    /* 开启虚拟内存*/
+    vm_enable();
+    early_printf("[JaeOS]VM Enable Successful.\n");
 }

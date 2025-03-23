@@ -27,12 +27,13 @@ extern Page *pages;       /* 内存页数组*/
 
 /* 接口函数*/
 /**
- * @brief 获取物理页的物理页号(索引值)
+ * @brief 获取物理页的物理页号
  *
  */
 static inline uint64_t __attribute__((warn_unused_result)) Page2Ppn(Page *p)
 {
-    return p - pages;
+    /* 注意：需要加上基地址*/
+    return (p - pages) + (pm_start >> PAGE_SHIFT);
 }
 /**
  * @brief 获取物理页的起始物理地址
@@ -40,7 +41,7 @@ static inline uint64_t __attribute__((warn_unused_result)) Page2Ppn(Page *p)
  */
 static inline uint64_t __attribute__((warn_unused_result)) Page2Pa(Page *p)
 {
-    return pm_start + (Page2Ppn(p) * PAGE_SIZE);
+    return Page2Ppn(p) << PAGE_SHIFT;
 }
 /**
  * @brief 获取物理地址对应的物理页
@@ -48,7 +49,9 @@ static inline uint64_t __attribute__((warn_unused_result)) Page2Pa(Page *p)
  */
 static inline Page *__attribute__((warn_unused_result)) Pa2Page(uint64_t pa)
 {
-    return &pages[(pa - pm_start) / PAGE_SIZE];
+    /* pa必须4KB对齐：定位到pa所在的物理页地址*/
+    /* 获取pa所在物理页*/
+    return &pages[((uint64_t)ADDRALIGNDOWN(pa, PAGE_SIZE) - pm_start) / PAGE_SIZE];
 }
 /**
  * @brief 获取物理内存的顶部地址

@@ -56,25 +56,41 @@
 #define PTE_SHARED (1 << 9) /* 共享位*/
 
 /* pte转换相关宏*/
-#define PTE_PPNSHIFT (10ull)                       /* pte中物理页号的偏移量*/
-#define PTE_PPN0_SHIFT (10ull)                     /* PPN[0]的偏移量*/
-#define PTE_PPN1_SHIFT (19ull)                     /* PPN[1]的偏移量*/
-#define PTE_PPN2_SHIFT (28ull)                     /* PPN[2]的偏移量*/
-#define PTE_PPN0_LEN (9)                           /* ppn[0]的位数*/
-#define PTE_PPN1_LEN (9)                           /* ppn[1]的位数*/
-#define PTE_PPN2_LEN (26)                          /* ppn[2]的位数*/
-#define PTE_PPN0_MASK ((1ull << PTE_PPN0_LEN) - 1) /* PPN[0]的掩码*/
-#define PTE_PPN1_MASK ((1ull << PTE_PPN1_LEN) - 1) /* PPN[0]的掩码*/
-#define PTE_PPN2_MASK ((1ull << PTE_PPN2_LEN) - 1) /* PPN[0]的掩码*/
-#define PTE_PPNMASK ((~0ull) << PTE_PPNSHIFT)      /* pte中物理页号的掩码*/
-#define PTE_PERMMASK (~PTE_PPNMASK)                /* pte中权限位的掩码*/
-#define PT_LEVELS (3ull)                           /* 页表级数*/
-#define PT_LEVEL_2 (2)                             /* 三级页表level*/
-#define PT_LEVEL_1 (1)                             /* 二级页表level*/
-#define PT_LEVEL_0 (0)                             /* 一级页表level*/
-#define PT_INDEX_LEN (9ull)                        /* 页表项索引长度(VPN字段长度)*/
-#define PT_INDEX_MAX (1ull << PT_INDEX_LEN)        /* 索引最大值512，实际索引是0 - 511*/
-#define PT_INDEX_MASK (PT_INDEX_MAX - 1)           /* VPN[x]掩码*/
+#define PTE_PPN_SHIFT (10ull)                                    /* pte中物理页号的偏移量*/
+#define PTE_PPN0_SHIFT (10ull)                                   /* PPN[0]的偏移量*/
+#define PTE_PPN1_SHIFT (19ull)                                   /* PPN[1]的偏移量*/
+#define PTE_PPN2_SHIFT (28ull)                                   /* PPN[2]的偏移量*/
+#define PTE_PPN0_LEN (9)                                         /* PPN[0]的位数*/
+#define PTE_PPN1_LEN (9)                                         /* PPN[1]的位数*/
+#define PTE_PPN2_LEN (26)                                        /* PPN[2]的位数*/
+#define PTE_PPN_LEN (PTE_PPN0_LEN + PTE_PPN1_LEN + PTE_PPN2_LEN) /* PPN的位数*/
+#define PTE_PPN0_MASK ((1ull << PTE_PPN0_LEN) - 1)               /* PPN[0]的掩码*/
+#define PTE_PPN1_MASK ((1ull << PTE_PPN1_LEN) - 1)               /* PPN[0]的掩码*/
+#define PTE_PPN2_MASK ((1ull << PTE_PPN2_LEN) - 1)               /* PPN[0]的掩码*/
+#define PTE_PPN_MASK ((1ull << PTE_PPN_LEN) - 1)                 /* PPN的掩码*/
+#define PTE_PERM_LEN (10)                                        /* PERM的位数*/
+#define PTE_PERM_MASK ((1ull << PTE_PERM_LEN) - 1)               /* PERM的掩码*/
+#define PT_LEVELS (3ull)                                         /* 页表级数*/
+#define PT_LEVEL_2 (2)                                           /* 三级页表level*/
+#define PT_LEVEL_1 (1)                                           /* 二级页表level*/
+#define PT_LEVEL_0 (0)                                           /* 一级页表level*/
+#define PT_INDEX_LEN (9ull)                                      /* 页表项索引长度(VPN字段长度)*/
+#define PT_INDEX_MAX (1ull << PT_INDEX_LEN)                      /* 索引最大值512，实际索引是0 - 511*/
+#define PT_INDEX_MASK (PT_INDEX_MAX - 1)                         /* VPN[x]掩码*/
+
+/**
+ * @brief satp寄存器格式：|63------60|59------51|50------44|43------0|
+ *                       |---MODE---|-Reserved-|---ASID---|---PPN---|
+ *                       |---4bit---|---9bit---|---7bit---|--44bit--|
+ *                      1.MODE：0 = BARE  1 = SV32  8 = SV39
+ *                      2.ASID：地址空间标识符
+ *                      3.PPN：根页表中页表项(只有一项)的PPN(必须4KB对齐)
+ *
+ */
+
+/* 配置MODE字段*/
+#define SATP_MODE_SHIFT (60)
+
 /**
  * @brief 获取VPN[level]
  * @param va 虚拟地址
@@ -92,7 +108,7 @@ static inline uint64_t __attribute__((warn_unused_result)) get_pte_index(uint64_
 static inline uint64_t __attribute__((warn_unused_result)) get_pte_permissions(uint64_t pte)
 {
     // return pte & 0x3FF
-    return pte & ((1ull << PTE_PPNSHIFT) - 1);
+    return pte & ((1ull << PTE_PPN_SHIFT) - 1);
 }
 /**
  * @brief 将物理地址转换为pte(去掉offset域，增加perm域)
@@ -106,7 +122,7 @@ static inline pte_t __attribute__((warn_unused_result)) Pa2Pte(uint64_t pa)
     uint64_t _ppn_0 = _ppn & PTE_PPN0_MASK;
     uint64_t _ppn_1 = ((_ppn >> PTE_PPN0_LEN) & PTE_PPN1_MASK) << PTE_PPN0_LEN;
     uint64_t _ppn_2 = ((_ppn >> (PTE_PPN0_LEN + PTE_PPN1_LEN)) & PTE_PPN2_MASK) << (PTE_PPN0_LEN + PTE_PPN1_LEN);
-    return (_ppn_0 | _ppn_1 | _ppn_2) << PTE_PPNSHIFT;
+    return (_ppn_0 | _ppn_1 | _ppn_2) << PTE_PPN_SHIFT;
 }
 /**
  * @brief 将pte转换为物理地址(取出PPN域，扩展Offset域)
