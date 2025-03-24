@@ -158,8 +158,8 @@ static inline uint64_t read_stvec(void)
 #define SSTATUS_UIE_MASK (1L << 0)
 /**
  * @brief 关闭S-Mode Interupt
- * 
- * @return uint64_t 
+ *
+ * @return uint64_t
  */
 static inline uint64_t disable_si(void)
 {
@@ -178,5 +178,37 @@ static inline uint64_t enable_si(void)
 	asm volatile("csrrsi %[ret], sstatus, %[sie_mask]" : [ret] "=&r"(ret) : [sie_mask] "i"(SSTATUS_SIE_MASK));
 	return (ret & (SSTATUS_SIE_MASK));
 	/* 返回之前SIE域的值*/
+}
+/**
+ * @brief 获取中断/异常原因: |63|62------0|
+ *                    1.63位：1表示中断，0表示异常
+ *                    2.62-0：原因代码
+ *
+ *
+ * @return uint64_t
+ */
+#define SCAUSE_TRAP_CODE_LEN (63)
+#define SCAUSE_TRAP_CODE_MASK ((1ul << SCAUSE_TRAP_CODE_LEN) - 1)
+#define SCAUSE_EXCEPTION (0ul)
+#define SCAUSE_INTERRUPT (1ul)
+#define INTERRUPT_TIMER (5)	   /* 定时器中断*/
+#define INTERRUPT_EXTERNEL (9) /* 外部中断*/
+static inline uint64_t read_scause(void)
+{
+	uint64_t cause;
+	asm volatile("csrr %[cause], scause" : [cause] "=r"(cause));
+	return cause;
+}
+
+/**
+ * @brief 读取时钟计数器的值
+ * 
+ * @return uint64_t 
+ */
+static inline uint64_t read_rdtime(void)
+{
+	uint64_t tcount;
+	asm volatile("rdtime %[tcount]" : [tcount] "=r"(tcount));
+	return tcount;
 }
 #endif /* __COMMON_RV64__H__ */

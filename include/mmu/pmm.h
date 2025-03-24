@@ -15,7 +15,7 @@ typedef struct Page
 typedef Page PageList;
 
 /* functions*/
-void pmmInit(void);
+void pmm_init(void);
 Page *alloc_page(void);
 void free_page(Page *page);
 void page_ref_inc(Page *_page);

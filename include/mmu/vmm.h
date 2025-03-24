@@ -159,6 +159,6 @@ static inline Page *__attribute__((warn_unused_result)) Pte2Page(pte_t pte)
     return Pa2Page(_pa);
 }
 /* functions*/
-void vmmInit(void);
+void vmm_init(void);
 void vm_enable(void);
 #endif /* !__MMU_VMM__H__*/

@@ -6,6 +6,8 @@
 #include "mmu/pmm.h"
 #include "mmu/vmm.h"
 #include "trap/trap.h"
+#include "dev/timer.h"
+#include "dev/plic.h"
 extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)*/
 /* 多核启动 */
 volatile static uint32_t hart_started[NCPU];  /* 确定哪个核已经被启动 */
@@ -22,6 +24,7 @@ volatile static uint32_t hart_start_lock = 0; /* 自选锁 */
 int main()
 {
     /* 获取当前核心号*/
+    /* 分配各个Hart的启动栈上*/
     uint64_t hart_id = read_hart_id();
     /* 主核hart0*/
     if (hart_id == 0L)
@@ -40,12 +43,12 @@ int main()
 
         /* 初始化物理内存模块*/
         early_printf("\n[JaeOS]Physical Memory Init Start.\n");
-        pmmInit();
+        pmm_init();
         early_printf("[JaeOS]Physical Memory Init Successful.\n");
         
         /* 初始化虚拟内存模块*/
         early_printf("\n[JaeOS]Virtual Memory Init Start.\n");
-        vmmInit();
+        vmm_init();
         early_printf("[JaeOS]Virtual Memory Init Successful.\n");
 
         /* 使能页表*/
@@ -55,6 +58,15 @@ int main()
         /* 设置异常向量表*/
         set_trap_handle();
         early_printf("\n[JaeOS]Set Trap Vector Successful.\n");
+
+        /* 定时器初始化*/
+        timer_init();
+        early_printf("\n[JaeOS]Timer Init Successful.\n");
+
+        /* 初始化PLIC(启动中断)*/
+        plic_init(hart_id);
+        early_printf("\n[JaeOS]PLIC Init Successful.\n");
+        
         /* Logo打印放到最后*/
         logo_init();
     }

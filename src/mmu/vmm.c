@@ -185,12 +185,15 @@ void vm_enable(void)
 
     /* 写satp寄存器*/
     write_satp(satp_mode | satp_ppn);
+
+    /* 刷新TLB(必须的操作，否则会导致旧的TLB缓存未清空，地址翻译错误)*/
+    asm volatile("sfence.vma zero, zero");
 }
 /**
  * @brief
  *
  */
-void vmmInit(void)
+void vmm_init(void)
 {
     /* 获取内核虚拟地址空间的根页表*/
     /* 根页表只有一个页表项，这里直接获取跟页表项的PPN(物理地址)*/
@@ -205,14 +208,24 @@ void vmmInit(void)
 
     /* 映射UART(确保地址4KB对齐)*/
     map_pa2va(UART0_BASE, UART0_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
-    /* 检查不映射UART，串口是否会出现问题*/
     early_printf("[JaeOS]UART0 Map Successful.\n");
+
+    /* 映射VirtIO_0(1页大小)*/
+    map_pa2va(VIRTIO_0_BASE, VIRTIO_0_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
+    early_printf("[JaeOS]VIRTIO_0 Map Successful.\n");
+
+    /* 映射RTC(1页大小)*/
+    map_pa2va(RTC_BASE, RTC_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
+    early_printf("[JaeOS]RTC Map Successful.\n");
+
     /* 映射中断控制器PLIC(4MB)*/
     map_pa2va(PLIC_BASE, PLIC_BASE, PAGE_SIZE * 1024, PTE_R | PTE_W);
     early_printf("[JaeOS]PLIC Map Successful.\n");
+
     /* 内核代码段*/
     map_pa2va(KERNEL_TEXT_BASE, KERNEL_TEXT_BASE, KERNEL_TEXT_SIZE, PTE_R | PTE_X);
     early_printf("[JaeOS]KERNEL_TEXT Map Successful.\n");
+
     /* 内核数据段*/
     map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE, PTE_R | PTE_W);
     early_printf("[JaeOS]KERNEL_DATA Map Successful.\n");

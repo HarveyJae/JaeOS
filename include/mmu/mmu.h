@@ -13,10 +13,13 @@ extern char end[];
 
 /* UART0的物理内存起始地址*/
 #define UART0_BASE ((uint64_t)ADDRALIGNUP(0x10000000ul, PAGE_SIZE))
-#define UART0_IRQ 10
+
 
 /* RTC的物理内存起始地址*/
 #define RTC_BASE ((uint64_t)ADDRALIGNUP(0x101000ul, PAGE_SIZE))
+
+/* VirtIO的物理内存起始地址*/
+#define VIRTIO_0_BASE ((uint64_t)ADDRALIGNUP(0x10001000ul, PAGE_SIZE))
 
 /* PLIC的物理内存起始地址*/
 #define PLIC_BASE ((uint64_t)ADDRALIGNUP(0x0c000000ul, PAGE_SIZE))

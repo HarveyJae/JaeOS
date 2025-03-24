@@ -152,21 +152,17 @@ void page_ref_dec(Page *_page)
  * @brief 物理内存管理模块初始化
  *
  */
-void pmmInit(void)
+void pmm_init(void)
 {
     /* 空闲内存页的起始地址(4KB页对齐)*/
-    /* 第一个物理页地址4KB对齐能够确保所有物理页地址都是4KB对齐*/
+    /* 内核结束后的第一个物理页地址，4KB对齐能够确保所有物理页地址都是4KB对齐*/
     uint64_t freemem_start_addr = (uint64_t)ADDRALIGNUP((uint64_t)end, PAGE_SIZE);
 
-    /* 保留空闲页内存的起始地址，这也是物理内存开启使用地址*/
-    pm_start = freemem_start_addr;
+    /* 物理内存的起始地址，包括openSBI和内核*/
+    pm_start = mem_info.start;
 
-    /* 空闲内存大小*/
-    /* 已考虑OpenSBI占用的内存，包括内存页数组所占页*/
-    uint64_t freemem_size = mem_info.size - (freemem_start_addr - mem_info.start);
-
-    /* 物理内存页数量*/
-    page_num = freemem_size / PAGE_SIZE;
+    /* 物理内存页数量(包括openSBI和内核)*/
+    page_num = mem_info.size / PAGE_SIZE;
 
     /* 初始化内存页数组*/
     pages = pm_init(freemem_start_addr, page_num * sizeof(Page), &freemem_start_addr, "Physical Memory Page Array");
