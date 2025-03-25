@@ -25,7 +25,7 @@ void _main()
 	write_satp(0L);
 
 	/* 启动S-Mode下的外部中断SEIE/定时器中断STIE/软件中断SSIE*/
-	write_sie(read_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
+	write_sie(read_sie() | SIE_SEIE | SIE_STIE);
 
 	/* 读取openSBI提供的dtb地址*/
 

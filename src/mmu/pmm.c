@@ -4,7 +4,7 @@
 #include "mmu/mmu.h"
 #include "lib/printf.h"
 #include "lib/string.h"
-
+#include "driver/virtio.h"
 /**
  * @brief 可用物理内存的起始地址
  *
@@ -177,25 +177,14 @@ void pmm_init(void)
     // extern void *sigevents;
     // sigevents = pmInitPush(freemem, NSIGEVENTS * sizeof(sigevent_t), &freemem);
 
-    // 为 VirtIO 驱动分配连续的两页
-    // extern void *virtioDriverBuffer;
-    // virtioDriverBuffer = pmInitPush(freemem, 2 * PAGE_SIZE, &freemem);
+    /* 初始化virt io*/
+    // virtio_buffer = pm_init(freemem_start_addr, 2 * PAGE_SIZE, &freemem_start_addr, "Virt IO Buffer");
 
     // 为磁盘缓存分配内存
     // extern void *bufferData;
     // bufferData = pmInitPush(freemem, BGROUP_NUM * sizeof(BufferDataGroup), &freemem);
     // extern void *bufferGroups;
     // bufferGroups = pmInitPush(freemem, BGROUP_NUM * sizeof(BufferGroup), &freemem);
-    // extern thread_t *threads;
-    // threads = pmInitPush(freemem, NTHREAD * sizeof(thread_t), &freemem);
-    // extern proc_t *procs;
-    // procs = pmInitPush(freemem, NPROC * sizeof(proc_t), &freemem);
-    // extern void *sigactions;
-    // sigactions = pmInitPush(freemem, NPROCSIGNALS * NPROC * sizeof(sigaction_t), &freemem);
-    // extern void *sigevents;
-    // sigevents = pmInitPush(freemem, NSIGEVENTS * sizeof(sigevent_t), &freemem);
-    // extern Dirent *dirents;
-    // dirents = pmInitPush(freemem, MAX_DIRENT * sizeof(Dirent), &freemem);
 
     // 为内核栈分配内存
     // extern void *kstacks;

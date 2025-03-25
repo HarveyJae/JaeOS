@@ -33,5 +33,5 @@ extern char end[];
 
 /* 内核的数据段物理内存起始地址*/
 #define KERNEL_DATA_BASE ((uint64_t)__text_end)
-#define KERNEL_DATA_SIZE ((uint64_t)end - (uint64_t)__text_end) /* 内核数据段大小，ld脚本确保该值4KB对齐*/
+#define KERNEL_DATA_SIZE ((uint64_t)pmTop() - (uint64_t)__text_end) /* 内核数据段大小，ld脚本确保该值4KB对齐*/
 #endif /* __MMU_MMU__H__*/

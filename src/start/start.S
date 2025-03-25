@@ -48,6 +48,7 @@ secondary:
         # 保存hart_id
         mv a2, a0
         # 跳转到C代码执行
+        wfi
         call _main
 split:
         # Not to here......

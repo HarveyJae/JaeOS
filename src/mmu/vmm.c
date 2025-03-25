@@ -7,7 +7,7 @@
 #include "lib/printf.h"
 #include "common/rv64.h"
 /**
- * @brief 内核虚拟地址空间的三级页表(根页表 level 2)第一个pte(只有一个pte)指向的物理页的PPN
+ * @brief 内核虚拟地址空间的三级页表(根页表 level 2)对应的物理页地址(中间层物理页)
  *
  */
 uint64_t kernel_root_pte_pa;
@@ -105,6 +105,10 @@ static void pte_modify(pte_t *pte, pte_t value)
  *                      a.中间层级pte无效：触发缺页异常，需要操作系统分配中间层级物理页
  *                      b.最终层级pte无效：触发缺页异常，需要操作系统分配实际数据物理页
  *
+ *          128M内存映射：
+ *                     a.L2级需要1个中间级物理页
+ *                     b.L1级需要64个pte，即1 * 64个中间级物理页(6位地址)
+ *                     c.L0级需要512个pte，即64 * 512个数据物理页(9位地址)
  * @param page_table_address 顶级页表的起始地址(第一个pte的地址)
  * @param va
  * @param create_flag
@@ -113,14 +117,17 @@ static void pte_modify(pte_t *pte, pte_t value)
 static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t create_flag)
 {
     /* 获取顶级页表(页表的第一个pte)*/
-    /* 同时，根页表只有一个页表项*/
+    /* 同时，根页表有512个pte*/
     pte_t *current_pt = (pte_t *)page_table_address;
 
     /* 遍历三级页表(level 2 -> level 1 -> level 0)*/
-    for (int8_t i = PT_LEVELS - 1; i >= 0; i--)
+    for (int8_t i = PT_LEVELS - 1; i > 0; i--)
     {
         /* 获取pte*/
-        pte_t *current_pte = current_pt + get_pte_index(va, i);
+        uint64_t index = get_pte_index(va, i);
+        pte_t *current_pte = current_pt + index;
+        // early_printf("level[%d]: va = %lx, pte index = %lu\n", i, va, index);
+        // early_printf("current_pt = %p, current_pte = %p\n\n",current_pt, current_pte);
         /* 检测当前页表项是否存在*/
         if (*current_pte & PTE_V)
         {
@@ -151,8 +158,8 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
             }
         }
     }
-
     /* 返回最后一级页表项*/
+    early_printf("create pt = %lx\n", (uint64_t)current_pt);
     return (pte_t *)(current_pt + get_pte_index(va, PT_LEVEL_0));
 }
 /**
@@ -166,17 +173,50 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
 static void map_pa2va(uint64_t pa, uint64_t va, uint64_t len, uint64_t perm)
 {
     /* 按页遍历内存区域*/
-    for (uint64_t i = 0; i < len; i += PAGE_SIZE)
+    for (uint64_t i = 0, cnt = 0; i < len; i += PAGE_SIZE)
     {
         pte_t *temp_pte = walk_page_table(kernel_root_pte_pa, va + i, true);
         /* 映射*/
+        early_printf("va = %lx, cnt = %lu\n", va + i, ++cnt);
         *temp_pte = (Pa2Pte(pa + i) | perm | PTE_V);
+        // early_printf("new pte val = %x\n", *temp_pte);
     }
     /* 当前不支持大页映射*/
 }
 /**
+ * @brief
+ *
+ * @param pt_address
+ * @param va
+ * @return pte_t
+ */
+static pte_t pt_check(uint64_t pt_address, uint64_t va)
+{
+    pte_t *_pte = walk_page_table(pt_address, va, false);
+    return _pte == NULL ? 0 : *_pte;
+}
+/**
+ * @brief
+ *
+ */
+static void mem_test(void)
+{
+    uint64_t pte;
+    for (uint64_t va = KERNEL_BASE; va < pmTop(); va += PAGE_SIZE)
+    {
+        pte = pt_check(kernel_root_pte_pa, va);
+        if (Pte2Pa(pte) != va)
+        {
+            early_printf("[JaeOS]Virtual Memory Init Failed.\n");
+            while (1)
+                ;
+        }
+    }
+    early_printf("[JaeOS]Passed Kernel MemMap Test!\n");
+}
+/**
  * @brief 开启虚拟内存管理
- * 
+ *
  */
 void vm_enable(void)
 {
@@ -207,12 +247,12 @@ void vmm_init(void)
     /* 采用直接映射的方式，即物理地址映射到相同的虚拟地址，便于驱动访问*/
 
     /* 映射UART(确保地址4KB对齐)*/
-    map_pa2va(UART0_BASE, UART0_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
-    early_printf("[JaeOS]UART0 Map Successful.\n");
+    map_pa2va(UART0_BASE, UART0_BASE, PAGE_SIZE, PTE_R | PTE_W);
+    early_printf("[JaeOS]UART0 Map Successful.\n\n");
 
     /* 映射VirtIO_0(1页大小)*/
     map_pa2va(VIRTIO_0_BASE, VIRTIO_0_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
-    early_printf("[JaeOS]VIRTIO_0 Map Successful.\n");
+    early_printf("[JaeOS]VIRTIO_0 Map Successful.\n\n");
 
     /* 映射RTC(1页大小)*/
     map_pa2va(RTC_BASE, RTC_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
@@ -226,7 +266,10 @@ void vmm_init(void)
     map_pa2va(KERNEL_TEXT_BASE, KERNEL_TEXT_BASE, KERNEL_TEXT_SIZE, PTE_R | PTE_X);
     early_printf("[JaeOS]KERNEL_TEXT Map Successful.\n");
 
+    early_printf("KERNEL_DATA_BASE:%lx\n", KERNEL_DATA_BASE);
     /* 内核数据段*/
-    map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE, PTE_R | PTE_W);
+    map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE - 10 * 1024 * 1024, PTE_R | PTE_W);
     early_printf("[JaeOS]KERNEL_DATA Map Successful.\n");
+
+    // mem_test();
 }

@@ -36,6 +36,13 @@ SECTIONS
         *(.bss .bss.*)
         PROVIDE(__bss_end = .); /*bss段结束地址*/
     }
+    .initcall_fs : 
+    {
+        . = ALIGN(8);
+        PROVIDE(__initcall_fs_start = .);
+        KEEP(*(.initcall_fs))  /* 避免此段被链接器垃圾清理（因为这些符号在代码中没有实际使用到） */
+	    PROVIDE(__initcall_fs_end = .);
+    }
     . = ALIGN(0x1000);
     PROVIDE(end = .); /*Heap的起始地址*/
 }

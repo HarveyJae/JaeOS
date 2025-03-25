@@ -10,13 +10,13 @@
  *        中断源ID从1开始
  *
  */
-#define PLIC_PRIORITY(interrupt_id) (PLIC + (0x04 * interrupt_id))
+#define PLIC_PRIORITY(interrupt_id) (PLIC_BASE + (0x04 * interrupt_id))
 /**
  * @brief 中断待处理状态寄存器，读取该寄存器确定哪些中断源处于待处理状态
  *        每个位表示一个中断源(bit0表示中断源0，1表示待处理)，位宽32bit
  *
  */
-#define PLIC_PENDING (PLIC + 0x1000)
+#define PLIC_PENDING (PLIC_BASE + 0x1000)
 /**
  * @brief M-Mode中断使能寄存器(针对特定Hart)
  *        每个位表示一个中断源(bit2表示中断源2，1表示使能)，位宽32bit

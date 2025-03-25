@@ -55,17 +55,17 @@ int main()
         vm_enable();
         early_printf("\n[JaeOS]VM Enable Successful.\n");
 
-        /* 设置异常向量表*/
-        set_trap_handle();
-        early_printf("\n[JaeOS]Set Trap Vector Successful.\n");
+        // /* 设置异常向量表*/
+        // set_trap_handle();
+        // early_printf("\n[JaeOS]Set Trap Vector Successful.\n");
 
-        /* 定时器初始化*/
-        timer_init();
-        early_printf("\n[JaeOS]Timer Init Successful.\n");
+        // /* 定时器初始化*/
+        // timer_init();
+        // early_printf("\n[JaeOS]Timer Init Successful.\n");
 
-        /* 初始化PLIC(启动中断)*/
-        plic_init(hart_id);
-        early_printf("\n[JaeOS]PLIC Init Successful.\n");
+        // /* 初始化PLIC(启动中断)*/
+        // plic_init(hart_id);
+        // early_printf("\n[JaeOS]PLIC Init Successful.\n");
         
         /* Logo打印放到最后*/
         logo_init();
