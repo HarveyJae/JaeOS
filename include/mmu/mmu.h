@@ -11,6 +11,8 @@ extern char end[];
 #define PAGE_SIZE 0x1000 /* 4KB*/
 #define PAGE_SHIFT 12    /* 页内偏移位数(offset)*/
 
+#define PAGE_TABLE_SIZE 0xA00000 /* 页表总大小：10MB*/
+
 /* UART0的物理内存起始地址*/
 #define UART0_BASE ((uint64_t)ADDRALIGNUP(0x10000000ul, PAGE_SIZE))
 
@@ -33,5 +35,10 @@ extern char end[];
 
 /* 内核的数据段物理内存起始地址*/
 #define KERNEL_DATA_BASE ((uint64_t)__text_end)
-#define KERNEL_DATA_SIZE ((uint64_t)pmTop() - (uint64_t)__text_end) /* 内核数据段大小，ld脚本确保该值4KB对齐*/
+#define KERNEL_DATA_SIZE (((uint64_t)pmTop() - (uint64_t)PAGE_TABLE_SIZE) - (uint64_t)__text_end) /* 内核数据段大小，ld脚本确保该值4KB对齐*/
+#define KERNEL_DATA_END (KERNEL_DATA_BASE + KERNEL_DATA_SIZE)
+
+/* 页表结构的起始地址*/
+#define PAGE_TABLE_BASE ((uint64_t)((uint64_t)pmTop() - (uint64_t)PAGE_TABLE_SIZE)) /* 页表地址范围不能被虚拟地址污染*/
+#define PAGE_TABLE_END (PAGE_TABLE_BASE + PAGE_TABLE_SIZE)
 #endif /* __MMU_MMU__H__*/

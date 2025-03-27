@@ -16,7 +16,8 @@ typedef Page PageList;
 
 /* functions*/
 void pmm_init(void);
-Page *alloc_page(void);
+Page *alloc_pt_page(void);
+Page *alloc_k_page(void);
 void free_page(Page *page);
 void page_ref_inc(Page *_page);
 void page_ref_dec(Page *_page);

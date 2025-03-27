@@ -49,7 +49,7 @@ int main()
         /* 初始化虚拟内存模块*/
         early_printf("\n[JaeOS]Virtual Memory Init Start.\n");
         vmm_init();
-        early_printf("[JaeOS]Virtual Memory Init Successful.\n");
+        early_printf("\n[JaeOS]Virtual Memory Init Successful.\n");
 
         /* 使能页表*/
         vm_enable();

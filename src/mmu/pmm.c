@@ -82,26 +82,66 @@ static void freelist_insert(Page *_new)
 }
 
 /**
- * @brief 分配物理内存页(是否需要加锁)
+ * @brief 分配页表物理内存页(是否需要加锁)
  *
  * @return Page*
  */
-Page *alloc_page(void)
+Page *alloc_pt_page(void)
 {
-    if (free_list.next == &free_list)
-    {
-        /* 空闲链表中没有节点(没有空闲的页)*/
-        return NULL;
-    }
     Page *page = free_list.next;
-    page->prev->next = page->next;  // 前驱节点指向后继
-    page->next->prev = page->prev;  // 后继节点指向前驱
-    page->next = page->prev = NULL; // 隔离已分配页
-    /* 分配前清空当前页的数据*/
-    memset((void *)Page2Pa(page), 0, PAGE_SIZE);
-    /* 更新剩余页状态*/
-    __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
-    return page;
+    while (page->next != &free_list)
+    {
+        /* 判断分配地址是否在PAGE_TABLE_BASE -> PAGE_TABLE_END区间内*/
+        if (Page2Pa(page) > PAGE_TABLE_BASE && Page2Pa(page) <= PAGE_TABLE_END)
+        {
+            /* 若free_list中存在空闲页，但不在这个范围内，也不会导致死循环*/
+            /* 循环判断条件在第一次遇到free_list的时候终止*/
+            /* 分配*/
+            page->prev->next = page->next;  // 前驱节点指向后继
+            page->next->prev = page->prev;  // 后继节点指向前驱
+            page->next = page->prev = NULL; // 隔离已分配页
+
+            /* 分配前清空当前页的数据*/
+            memset((void *)Page2Pa(page), 0, PAGE_SIZE);
+            /* 更新剩余页状态*/
+            __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
+            return page;
+        }
+        /* 更新page*/
+        page = page->next;
+    }
+    /* 没有空闲页可以分配*/
+    return NULL;
+}
+/**
+ * @brief 在内核地址空间申请一个物理页，并返回物理页
+ *
+ * @return Page *
+ */
+Page *alloc_k_page(void)
+{
+    Page *page = free_list.next;
+    while (page->next != &free_list)
+    {
+        /* 判断分配地址是否在PAGE_TABLE_BASE -> PAGE_TABLE_END区间内*/
+        if (Page2Pa(page) > KERNEL_DATA_BASE && Page2Pa(page) <= KERNEL_DATA_END)
+        {
+            /* 分配*/
+            page->prev->next = page->next;  // 前驱节点指向后继
+            page->next->prev = page->prev;  // 后继节点指向前驱
+            page->next = page->prev = NULL; // 隔离已分配页
+
+            /* 分配前清空当前页的数据*/
+            memset((void *)Page2Pa(page), 0, PAGE_SIZE);
+            /* 更新剩余页状态*/
+            __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
+            return page;
+        }
+        /* 更新page*/
+        page = page->next;
+    }
+    /* 没有空闲页可以分配*/
+    return NULL;
 }
 /**
  * @brief 释放物理内存页(是否需要加锁)
@@ -204,6 +244,8 @@ void pmm_init(void)
     /* 添加空闲页到空闲链表*/
     for (uint64_t i = usedpage_num; i < page_num; i++)
     {
+        /* 头插法使得pmTop()成为第一块空闲页*/
+        /* 因此后续的内存分页从高地址向低地址分配*/
         freelist_insert(&pages[i]);
     }
     /* 未使用的内存页数量*/
