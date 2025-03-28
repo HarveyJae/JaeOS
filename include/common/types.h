@@ -28,6 +28,14 @@ typedef uint64_t register_t;
 /* 页表项PTE定义 */
 typedef uint64_t pte_t;
 
+/* 进程相关定义*/
+typedef uint32_t pid_t;     /* 进程号类型*/
+typedef uint64_t uintptr_t; /* 地址类型*/
+typedef int32_t err_t;      /* 退出类型*/
+typedef uint32_t tid_t;     /* 线程号类型*/
+
+/* 信号相关*/
+typedef uint32_t uid_t;
 /**
  * @brief 将地址向上对齐到指定边界
  * @param a     原始地址
