@@ -3,7 +3,7 @@
 #include "trap/trap.h"
 #include "dev/timer.h"
 
-extern void ktrap_vector(); /* 异常向量表地址*/
+extern char ktrap_vector[]; /* 异常向量表地址*/
 /**
  * @brief 设置异常向量表
  *

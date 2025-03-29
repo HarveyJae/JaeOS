@@ -25,4 +25,34 @@
         type *tqe_next;  /* next element */                     \
         type **tqe_prev; /* address of previous next element */ \
     }
+
+/**
+ * @brief 初始化队列
+ * @param head 队列头地址
+ *
+ */
+#define TAILQ_INIT(head)                       \
+    do                                         \
+    {                                          \
+        (head)->tqh_first = NULL;              \
+        (head)->tqh_last = &(head)->tqh_first; \
+    } while (0)
+
+/**
+ * @brief 头插法插入队列
+ * @param head 队列头地址 
+ * @param elm 插入成员地址
+ * @param field 链接字段
+ */
+#define TAILQ_INSERT_HEAD(head, elm, field)                             \
+    do                                                                  \
+    {                                                                   \
+        if (((elm)->field.tqe_next = (head)->tqh_first) != NULL)        \
+            (head)->tqh_first->field.tqe_prev = &(elm)->field.tqe_next; \
+        else                                                            \
+            (head)->tqh_last = &(elm)->field.tqe_next;                  \
+        (head)->tqh_first = (elm);                                      \
+        (elm)->field.tqe_prev = &(head)->tqh_first;                     \
+    } while (0)
+
 #endif /* !__LIB_QUEUE__H__*/

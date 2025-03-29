@@ -35,7 +35,7 @@ typedef int32_t err_t;      /* 退出类型*/
 typedef uint32_t tid_t;     /* 线程号类型*/
 
 /* 信号相关*/
-typedef uint32_t uid_t;
+typedef uint32_t uid_t; 
 /**
  * @brief 将地址向上对齐到指定边界
  * @param a     原始地址

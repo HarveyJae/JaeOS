@@ -6,13 +6,13 @@
 #include "lib/queue.h"
 #include "lock/mutex.h"
 #include "process/proc.h"
-
+#include "signal/signal.h"
 #define MAX_PATH_LEN (128)
-#define MAX_THREAD_NAME_LEN (MAX_PATH_LEN + 1)
-
+#define MAX_THREAD_NAME_LEN (MAX_PATH_LEN + 1) /* 最大线程名*/
+#define MAX_THREAD_NUM (256)				   /* 最大线程数量*/
 /**
  * @brief 线程结构体
- * 
+ *
  */
 typedef struct thread
 {
@@ -41,8 +41,20 @@ typedef struct thread
 	uint64_t td_utstamp;			   /* 用户态线程时间戳*/
 	uint64_t td_ststamp;			   /* 内核态线程时间戳*/
 	sigset_t td_sigmask;			   /* 线程信号屏蔽字(t_startcopy_addr)*/
-	ptr_t td_kstack;				   /* 内核栈所在页的首地址(t_endzero/copy_addr)*/
-	sigeventq_t td_sigqueue;		   /* 待处理信号队列*/
+	uintptr_t td_kstack;			   /* 内核栈所在页的首地址(t_endzero/copy_addr)*/
+	TAILQ_HEAD(struct sigevent)		   /* 拼接注释*/
+	td_sigqueue;					   /* 待处理信号队列*/
 } thread_t;
+
+/**
+ * @brief 线程队列类型(全局锁)
+ *
+ */
+typedef struct
+{
+	TAILQ_HEAD(thread_t) /* 拼接注释*/
+	tq_head;			 /* 线程队列*/
+	mutex_t tq_lock;	 /* 全局锁*/
+} threadq_t;
 
 #endif /* !__PROCESS_THREAD__H__*/

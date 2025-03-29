@@ -1,17 +1,28 @@
 OUTPUT_ARCH("riscv")
 ENTRY(_start)
-/*内存布局:0x80200000 - 0x88000000  126MB*/
 SECTIONS
 {
     /*确保_start的起始地址是0x80200000*/
     . = 0x80200000;
     .text : 
     {
-        PROVIDE(__text_start = .); /*text段结开始地址，等于0x80200000*/
-        *(.text.boot) /*确保启动代码链接在最前面*/
+        PROVIDE(__text_start = .);  /*text段结开始地址，等于0x80200000*/
+        *(.text.boot)               /*确保启动代码链接在最前面*/
         *(.text .text.*)
-        . = ALIGN(0x1000); /*4KB字节对齐*/
-        PROVIDE(__text_end = .); /*text段结束地址*/
+        . = ALIGN(0x1000);          /*4KB字节对齐*/
+        PROVIDE(__text_end = .);    /*text段结束地址*/
+
+        PROVIDE(__trampoline_start = .);  /*trampoline起始地址*/
+        *(.trampoline)
+        . = ALIGN(0x1000);
+        ASSERT(. - __trampoline_start == 0x1000, "error: trampoline larger than one page");
+        PROVIDE(__trampoline_end = .);    /*trampoline结束地址*/
+
+        PROVIDE(__sigsec_start = .);
+	    *(.sigsec)
+	    . = ALIGN(0x1000);                /*sigsec开始地址*/
+	    ASSERT(. - __sigsec_start == 0x1000, "error: sigSec larger than one page");
+        PROVIDE(__sigsec_end = .);        /*sigsec结束地址*/
     }
     .rodata : 
     {

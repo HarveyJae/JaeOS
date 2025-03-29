@@ -2,25 +2,20 @@
 #include "lock/mutex.h"
 #include "common/rv64.h"
 
+mutex_t first_thread_lock; /* 保护第一个线程的创建过程*/
+mutex_t td_tid_lock;	   /* 保护线程ID的分配与回收*/
+mutex_t wait_lock;		   /* 等待锁:保证父进程等待和子进程退出按顺序依次发生*/
+mutex_t pid_lock;          /* 保护进程ID的分配与回收*/
+
 /**
- * @brief 进入临界区：关闭中断，跟踪当前CPU的锁嵌套深度
- * 
- * @param mutex 
+ * @brief 进入临界区：关闭中断(是否需要关闭调度器)
+ *        不支持多核心
+ * @param mutex
  */
 static void mutex_enter_critical(mutex_t *mutex)
 {
 	/* 关闭中断并保存之前的中断状态*/
 	register_t pre_sie = disable_si();
-	cpu_t *cpu = cpu_this();
-	if (cpu->cpu_lk_depth == 0)
-	{
-		cpu->cpu_lk_saved_sstatus = before;
-	}
-#ifdef LOCK_DEPTH_DEBUG
-	// 记录加的锁的指针
-	cpu_this()->cpu_lks[cpu->cpu_lk_depth] = m;
-#endif
-	cpu->cpu_lk_depth++;
 }
 /**
  * @brief 加锁(互斥锁mutex)

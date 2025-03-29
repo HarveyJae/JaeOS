@@ -5,6 +5,13 @@
 
 #define MUTEX_TYPE_SPIN 0x01  /* mutex底层基于自旋锁实现*/
 #define MUTEX_TYPE_SLEEP 0x02 /* mutex底层基于睡眠锁实现*/
+
+#define MUTEX_RECURSE 0x04 /* 锁可重入*/
+
+/**
+ * @brief mutex类型定义
+ * 
+ */
 typedef struct
 {
 	const uint8_t *mutex_name; /* 用于标识不同的互斥锁mutex实例*/
@@ -15,4 +22,9 @@ typedef struct
 	uint8_t mutex_depth;	   /* 互斥锁mutex的锁深度*/
 } mutex_t;
 
+/* data*/
+extern mutex_t wait_lock;
+extern mutex_t td_tid_lock;
+extern mutex_t first_thread_lock;
+extern mutex_t pid_lock;
 #endif /* !__LOCK_MUTEX__H__*/

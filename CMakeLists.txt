@@ -42,7 +42,7 @@ execute_process(
 	OUTPUT_VARIABLE QEMU_VERSION_OUTPUT
 )
 message(STATUS "Find QEMU: ${QEMU_EXECUTABLE} Version: ${QEMU_VERSION_OUTPUT}")
-list(APPEND QFLAGS "-cpu" "rv64" "-nographic" "-machine" "virt" "-smp" "4") # 参数配置
+list(APPEND QFLAGS "-cpu" "rv64" "-nographic" "-machine" "virt" "-smp" "4" "-m" "1G") # 参数配置
 
 # GDB-multiarch配置
 find_program(GDB_EXECUTABLE

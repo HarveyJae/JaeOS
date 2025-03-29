@@ -150,9 +150,8 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
             }
             else
             {
-                /* 页表项不存在时必须创建*/
-                while (1)
-                    ;
+                /* 页表项不存在时返回NULL*/
+                return NULL;
             }
         }
     }
@@ -170,7 +169,7 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
  */
 static void map_pa2va(uint64_t pa, uint64_t va, uint64_t len, uint64_t perm)
 {
-    //static uint64_t cnt = 0;
+    static uint64_t cnt = 0;
     /* 按页遍历内存区域*/
     for (uint64_t i = 0; i < len; i += PAGE_SIZE)
     {
@@ -269,11 +268,55 @@ void vmm_init(void)
     map_pa2va(KERNEL_TEXT_BASE, KERNEL_TEXT_BASE, KERNEL_TEXT_SIZE, PTE_R | PTE_X);
     early_printf("[JaeOS]KERNEL_TEXT Map Successful.\n\n");
 
-    
     /* 内核数据段*/
     early_printf("[JaeOS]KERNEL_DATA_BASE:0x%lX\n", KERNEL_DATA_BASE);
     map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE, PTE_R | PTE_W);
     early_printf("[JaeOS]KERNEL_DATA Map Successful.\n\n");
 
     mem_test();
+}
+/**
+ * @brief 修改已有映射或添加映射
+ *
+ * @param pt 根页表物理地址
+ * @param va 虚拟地址
+ * @param pa 物理地址
+ * @param perm 页权限
+ * @return err_t
+ */
+err_t pt_map(uint64_t pt_address, uint64_t va, uint64_t pa, uint64_t perm)
+{
+    // mtx_lock(&kvmlock);
+    /* 遍历页表尝试获得va对应的页表项地址(没有则创建)*/
+    pte_t *pte = walk_page_table(pt_address, va, true);
+    if (*pte & PTE_V)
+    {
+        /* 原页表项有效时，修改映射(此时不应该是添加被动映射)*/
+        if (pa == 0)
+        {
+            while (1)
+                ;
+        }
+        pte_modify(pte, Pa2Pte(pa) | perm | PTE_V);
+    }
+    else if (pa == 0)
+    {
+        /* 原页表项无效，添加被动映射(传入的物理地址必须为零)*/
+        /* 映射到物理地址0表示：延迟分配物理页，进程实际访问该虚拟地址时才分配物理页*/
+        pte_modify(pte, perm);
+        // mtx_unlock(&kvmlock);
+        /* 直接返回，不用刷新TLB*/
+        return 0;
+    }
+    else
+    {
+        /* 原页表项无效，添加有效映射，外部已申请了页面*/
+        if (pa < pm_start)
+        pte_modify(pte, Pa2Pte(pa) | perm | PTE_V);
+    }
+
+    /* 刷新TLB*/
+    tlb_flush(va);
+    //mtx_unlock(&kvmlock);
+    return 0;
 }

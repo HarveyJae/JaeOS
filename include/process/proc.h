@@ -6,6 +6,8 @@
 #include "lib/queue.h"
 #include "trap/trap.h"
 #include "lock/mutex.h"
+#define MAX_PROC_NUM (256) /* 最大线程数量*/
+
 /**
  * @brief 进程状态枚举
  *
@@ -41,7 +43,7 @@ typedef struct proc
     LIST_ENTRY(struct proc)   /* 拼接注释*/
     p_list;                   /* 进程空闲链表entry*/
     TAILQ_HEAD(struct thread) /* 拼接注释*/
-    p_threads_queue;          /* 进程的线程队列*/
+    p_threadsq;               /* 进程的线程队列*/
     state_t p_status;         /* 进程状态*/
     pid_t p_pid;              /* 进程id*/
     uintptr_t p_brk;          /* 进程的堆顶地址*/
@@ -56,5 +58,17 @@ typedef struct proc
     LIST_ENTRY(struct proc) /* 拼接注释*/
     p_sibling;              /* 父进程的子进程列表entry*/
 } proc_t;
+
+/**
+ * @brief 进程队列类型(全局锁)
+ *        基于链表
+ */
+typedef struct proclist
+{
+    LIST_HEAD(proc_t) /* 拼接注释*/
+    pl_list;          /* 进程队列*/
+    mutex_t pl_lock;  /* 全局锁*/
+
+} proclist_t;
 
 #endif /* !__PROC__H__*/

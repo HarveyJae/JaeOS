@@ -2,6 +2,10 @@
 #define __SIGNAL_SIGNAL__H__
 
 #include "common/types.h"
+#include "trap/trap.h"
+#include "lib/queue.h"
+
+#define MAX_SIGNAL_NUM 128 /* 支持的最大信号数量*/
 
 typedef union
 {
@@ -9,6 +13,15 @@ typedef union
     void *si_ptr;
 } sigval_t;
 
+/**
+ * @brief 信号集合
+ * 
+ */
+typedef struct
+{
+    /* +7表示向上取整，避免信号位数截断*/
+    uint8_t ss_byte[(MAX_SIGNAL_NUM + 7) / 8]; /* 字节数组，每个位表示一个信号*/
+} sigset_t;
 /**
  * @brief 信号结构体(Linux2.6兼容:gibc)
  *
@@ -38,5 +51,21 @@ typedef struct
     int si_syscall;       /* 被拦截的系统调用编号*/
     unsigned int si_arch; /* 系统调用的 CPU 架构*/
 } siginfo_t;
+
+/**
+ * @brief 事件信号处理
+ *
+ */
+typedef struct sigevent
+{
+    trapframe_t se_restoretf;    /* 用户态上下文*/
+    sigset_t se_restoremask;     /* 处理信号前的信号集合*/
+    int32_t se_signo;            /* 触发的信号编号*/
+    int32_t se_status;           /* 信号附加状态信息*/
+    uint64_t se_usiginfo;        /* 用户态信号结构体*/
+    uint64_t se_uuctx;           /* 用户态上下文*/
+    TAILQ_ENTRY(struct sigevent) /* 拼接注释*/
+    se_link;                     /* 内核管理的信号事件队列成员*/
+} sigevent_t;
 
 #endif /* !__SIGNAL_SIGNAL__H__*/

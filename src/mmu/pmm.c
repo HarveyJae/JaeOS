@@ -189,6 +189,32 @@ void page_ref_dec(Page *_page)
     }
 }
 /**
+ * @brief 在内核申请一个物理页，返回其物理地址
+ *        与alloc_k_page()相比，多了增加页面引用
+ *
+ * @return uint64_t
+ */
+uint64_t alloc_km(void)
+{
+    // mtx_lock(&kvmlock);
+    Page *p = alloc_k_page();
+    page_ref_inc(p); /* 增加页面引用*/
+    // mtx_unlock(&kvmlock);
+    return Page2Pa(p);
+}
+/**
+ * @brief 释放内核空间的物理页
+ *
+ * @param pa
+ */
+void free_km(uint64_t pa)
+{
+    // mtx_lock(&kvmlock);
+    Page *p = Pa2Page(pa);
+    page_ref_dec(p); /* 减少页面引用*/
+    // mtx_unlock(&kvmlock);
+}
+/**
  * @brief 物理内存管理模块初始化
  *
  */
