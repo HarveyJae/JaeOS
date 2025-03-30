@@ -36,6 +36,9 @@ typedef struct
 #define FDT_NOP 0x00000004
 #define FDT_END 0x00000009
 
+/* functions*/
 void dtb_prase(uint64_t _dtb_entry);
+/* data*/
 extern MEM_INFO mem_info;
+extern uint64_t dtb_entry;
 #endif /* !__DEV_DTB__H__ */

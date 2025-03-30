@@ -7,7 +7,7 @@
 #include "mmu/vmm.h"
 #include "mmu/pmm.h"
 
-proc_t *procs;            /* 全局进程数组*/
+proc_t *procs = NULL;     /* 全局进程数组*/
 proclist_t proc_freelist; /* 空闲进程链表*/
 
 extern char trampoline[];   /* trampoline.S的全局符号*/
@@ -19,16 +19,17 @@ extern char user_sig_ret[]; /* signal_trampoline.S的全局符号*/
 void proc_init(void)
 {
     /* 初始化相关锁*/
-    mtx_init(&pid_lock, "pid_lock", false, MUTEX_TYPE_SPIN);
-    mtx_init(&proc_freelist.pl_lock, "proc_freelist", false, MUTEX_TYPE_SPIN);
+    mutex_init(&pid_lock, "pid_lock", MUTEX_TYPE_SPIN);
     LIST_INIT(&proc_freelist.pl_list);
     for (int i = MAX_PROC_NUM - 1; i >= 0; i--)
     {
         proc_t *p = &procs[i];
+        p->mutex_index = i;
+        p->p_lock = &mutexs[p->mutex_index];
         /* 插入空闲进程队列*/
         LIST_INSERT_HEAD(&proc_freelist.pl_list, p, p_list);
         /* 初始化进程锁*/
-        mtx_init(&p->p_lock, "proc", false, MUTEX_TYPE_SPIN | MUTEX_RECURSE);
+        mutex_init(p->p_lock, "proc", MUTEX_TYPE_SPIN | MUTEX_RECURSE);
         /* 初始化进程的线程队列*/
         TAILQ_INIT(&p->p_threadsq);
         /* 初始化进程的子进程队列*/
@@ -36,7 +37,7 @@ void proc_init(void)
         /* 初始化进程的父进程*/
         p->p_parent = NULL;
         /* 初始化进程的页表*/
-        p->p_pt = NULL;
+        p->p_pt = 0;
         /* 初始化进程的上下文*/
         p->p_trapframe = NULL;
         /* 初始化进程的用户栈*/
@@ -51,8 +52,7 @@ void proc_init(void)
 void proc_upt_init(proc_t *p)
 {
     /* 分配页表*/
-    pte_t pt = Pa2Pte(alloc_km());
-    p->p_pt = &pt;
+    p->p_pt = alloc_km();
 
     /* TRAMPOLINE_VMA是用户与内核共享的空间，因此需要赋以PTE_G 全局位*/
     pt_map(p->p_pt, TRAMPOLINE_VMA, (uint64_t)trampoline, PTE_R | PTE_X | PTE_G);

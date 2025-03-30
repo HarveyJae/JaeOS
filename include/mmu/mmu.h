@@ -11,7 +11,7 @@ extern char end[];
 #define PAGE_SIZE 0x1000 /* 4KB*/
 #define PAGE_SHIFT 12    /* 页内偏移位数(offset)*/
 
-#define PAGE_TABLE_SIZE 0x6400000 /* 页表总大小：100MB*/
+#define PAGE_TABLE_SIZE 0x7800000 /* 页表总大小：120MB*/
 
 /* UART0的物理内存起始地址*/
 #define UART0_BASE ((uint64_t)ADDRALIGNUP(0x10000000ul, PAGE_SIZE))
@@ -37,9 +37,20 @@ extern char end[];
 #define KERNEL_DATA_SIZE (((uint64_t)pmTop() - (uint64_t)PAGE_TABLE_SIZE) - (uint64_t)__text_end) /* 内核数据段大小，ld脚本确保该值4KB对齐*/
 #define KERNEL_DATA_END (KERNEL_DATA_BASE + KERNEL_DATA_SIZE)
 
-/* 页表结构的起始地址*/
-#define PAGE_TABLE_BASE ((uint64_t)((uint64_t)pmTop() - (uint64_t)PAGE_TABLE_SIZE)) /* 页表地址范围不能被虚拟地址污染*/
-#define PAGE_TABLE_END (PAGE_TABLE_BASE + PAGE_TABLE_SIZE)
+/**
+ * @brief 页表地址范围的自映射
+ *        物理内存大小1G(0x8000 0000 - 0xC000 0000)，页表地址范围120M(0xB880 0000 ~ 0xC000 0000)，其中根页表物理地址是0xBFFF F000
+ * 若采用直接映射：
+ * 1.根页表虚拟地址的VPN：000000010    111111111     111111111          
+ * 2.内核最高虚拟地址VPN：000000010    111000100     000000000      
+ * 很显然，根页表虚拟地址的VPN2和部分内核虚拟地址的VPN2冲突，当页表自映射的时候，会导致重叠部分的内核最高虚拟地址无法映射，从而导致系统崩溃
+ * 因此，对于页表地址范围，不能采用直接映射：将根页表0xBFFF F000映射为0x17FFFE000(000000101 111111111 111111110) -> 左移1bit
+ * 
+ * 页表自映射是一个自动化的过程，当新的页表出现时，才需要自映射该页表
+ * 
+ */
+#define PAGE_TABLE_BASE ((uint64_t)((uint64_t)pmTop() - (uint64_t)PAGE_TABLE_SIZE)) /* 页表结构的起始地址*/
+#define PAGE_TABLE_END (PAGE_TABLE_BASE + PAGE_TABLE_SIZE)                          /* 页表结构的结束地址*/
 
 /**
  * @brief JaeOS虚拟内存布局
@@ -74,7 +85,7 @@ extern char end[];
  */
 
 #define MAX_VMA ((1ul << (9 + 9 + 9 + 12 - 1)) - 1) /* 256G 0x0 ~ 0x3FFFFFFFFFFFFF*/
-#define MIN_USER_VMA 0x10000                         /* 用户空间的最低可用地址*/
+#define MIN_USER_VMA 0x10000                        /* 用户空间的最低可用地址*/
 
 #define TRAMPOLINE_VMA (MAX_VMA + 1 - PAGE_SIZE)           /* 跳板代码起始地址*/
 #define SIGNAL_TRAMPOLINE_VMA (TRAMPOLINE_VMA - PAGE_SIZE) /* 信号跳板起始地址*/
@@ -83,7 +94,7 @@ extern char end[];
 #define USTACKTOP_VMA STACKTOP_VMA                         /* 用户栈顶*/
 
 /* 线程内核栈*/
-#define TD_KSTACK_PAGE_NUM (2)                                                       /* 每个线程内核栈占用页数*/
+#define TD_KSTACK_PAGE_NUM (4)                                                       /* 每个线程内核栈占用页数*/
 #define TD_KSTACK_SIZE (TD_KSTACK_PAGE_NUM * PAGE_SIZE)                              /* 每个线程内核栈大小*/
 #define TD_KSTACK_VMA(p) (STACKTOP_VMA - (((p) + 1) * (TD_KSTACK_SIZE + PAGE_SIZE))) /* 每个线程内核栈的起始虚拟地址，P表示线程编号*/
 

@@ -6,11 +6,17 @@
 #include "sbi/sbi.h"
 #include "lib/printf.h"
 #include "common/rv64.h"
+#include "lock/mutex.h"
 /**
- * @brief 内核虚拟地址空间的三级页表(根页表 level 2)对应的物理页地址(中间层物理页)
+ * @brief 内核虚拟地址空间的三级页表(根页表 level 2)对应的物理页地址
  *
  */
 uint64_t kernel_root_pte_pa;
+/**
+ * @brief 内核虚拟地址空间的三级页表(根页表 level 2)对应的虚拟页地址
+ *
+ */
+uint64_t kernel_root_pte_va;
 /* .text作为内核代码段*/
 extern char __text_end[]; /* .ld文件中定义的.text段结束地址*/
 /**
@@ -86,6 +92,58 @@ static void pte_modify(pte_t *pte, pte_t value)
     }
 }
 /**
+ * @brief 1.L2页表只有一个，即根页表，根页表地址的映射：
+ *          假设L2的虚拟地址是vm，vm需要满足:
+ *          |VPN2|VPN1|VPN0|OFFSET|
+ *          |a   |a   |a   |0     |
+ *          a.当MMU翻译地址时，首先会在L2页表中索引a这个页表项，a表示的页表项的PPN必须是L2页表物理地址的PPN，此时MMU会根据PPN检索到L1页表(实际上还是这个L2页表)
+ *          b.MMU会在L1页表中(还是根页表)索引VPN1(还是a)，此时MMU根据页表项的PPN检索到L0页表(实际上还是L2页表)
+ *          c.MMU会在L0页表中(还是根页表)索引VPN0(还是a)，此时MMU根据页表项PPN检索到终点页表PPN，加上OFFSET(0)，此时正好回到该L2页表的起始地址，vm成功翻译成物理地址
+ *          注意：a的索引值不能干扰内核空间的索引值，应把a选的足够大，否则会冲突，导致内核空间的部分地址无法映射
+ *        2.L1页表的映射：
+ *          假设L1的虚拟地址是vm，vm需要满足：
+ *          |VPN2|VPN1|VPN0|OFFSET|
+ *          |a   |a   |b   |0     |
+ *          a.前两级的地址翻译同上
+ *          b.当MMU处理L0页表(根页表)的时候，在L0页表中索引b这个页表项，索引b就是该L1页表在L2页表中的实际索引值(即索引b表示的页表项的PPN是该L1页表物理地址的PPN)
+ *        3.L0页表的映射：
+ *          假设L0的虚拟地址是vm，vm需要满足：
+ *          |VPN2|VPN1|VPN0|OFFSET|
+ *          |a   |b   |c   |0     |
+ *          a.L2页表的地址翻译同上
+ *          b.当MMU处理L1页表(根页表)的时候，在L1页表中索引b这个页表项，索引b就是"该L0页表对应的L1页表"在L2页表中的实际索引值(即索引b表示的页表项的PPN是该L1页表物理地址的PPN)
+ *          c.当MMU处理L0页表(L1页表)的时候，在L0页表中索引c这个页表项，索引c就是该L0页表在L1页表中的实际索引值(即索引c表示的页表项的PPN是该L0页表物理地址的PPN)
+ *
+ *
+ *         **注意：代码中，左移1bit可以避免页表虚拟地址的vpn2和内核空间虚拟地址的vpn2冲突
+ *           只映射根页表地址，其他页表都可以根据根页表定位到
+ * @param root_pt 根页表
+ * @param now_pt 当前页表
+ * @param pt_level 当前页表所属层级
+ */
+static void pt_mapself(pte_t *root_pt, pte_t *now_pt, uint8_t pt_level)
+{
+    if (pt_level == PT_LEVEL_2)
+    {
+        /* 当前处理的是根页表*/
+        /* 获取根页表物理地址，并转换成pte*/
+        uint64_t root_pt_pa = (uint64_t)now_pt;
+        pte_t pte_l2 = Pa2Pte(root_pt_pa);
+        /* 获取vpn2字段，这个值需要自行配置*/
+        uint64_t vpn_2 = ((root_pt_pa << 1) >> (PAGE_SHIFT + PT_INDEX_LEN * 2)) & PT_INDEX_MASK;
+        /* 映射：写入索引vpn2对应的pte(vpn1/vpn0同)*/
+        pte_t *current_pte = root_pt + vpn_2;
+        *current_pte = pte_l2 | PTE_V | PTE_R | PTE_W;
+        /* 合成虚拟地址*/
+        kernel_root_pte_va = (vpn_2 << (PAGE_SHIFT + PT_INDEX_LEN * 2)) | (vpn_2 << (PAGE_SHIFT + PT_INDEX_LEN)) | (vpn_2 << PAGE_SHIFT);
+        return;
+    }
+    /* 暂不需要自映射其他页表地址*/
+    while (1)
+        ;
+}
+
+/**
  * @brief 遍历虚拟地址va对应的页表，返回最终pte的指针(即va对应的物理页)，如果中间页表不存在且create_flag = true，则自动创建页表
  *        页表项、物理页与缺页异常的关系：
  *          1.页表项pte：页表项负责将虚拟地址映射到物理地址，每个pte包含以下关键信息：
@@ -119,8 +177,7 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
     /* 获取顶级页表(页表的第一个pte)*/
     /* 同时，根页表有512个pte*/
     pte_t *current_pt = (pte_t *)page_table_address;
-
-    /* 遍历三级页表(level 2 -> level 1 -> level 0)*/
+    /* 遍历三级页表(level 2 -> level 1 -> level 0，其中根页表就是level 2)*/
     for (int8_t i = PT_LEVELS - 1; i > 0; i--)
     {
         /* 获取pte*/
@@ -140,7 +197,7 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
             if (create_flag)
             {
                 /* 分配中间层级物理页*/
-                Page *new_page = alloc_pt_page();
+                Page *new_page = alloc_k_page();
                 /* 将新的中间层级物理页地址写入当前页表项*/
                 pte_modify(current_pte, Page2Pte(new_page) | PTE_V);
                 /* 刷新tlb*/
@@ -156,7 +213,7 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
         }
     }
     /* 返回最后一级页表项*/
-    //early_printf("create pt = %lx\n", (uint64_t)current_pt);
+    // early_printf("create pt = %lx\n", (uint64_t)current_pt);
     return (pte_t *)(current_pt + get_pte_index(va, PT_LEVEL_0));
 }
 /**
@@ -169,13 +226,13 @@ static pte_t *walk_page_table(uint64_t page_table_address, uint64_t va, uint64_t
  */
 static void map_pa2va(uint64_t pa, uint64_t va, uint64_t len, uint64_t perm)
 {
-    static uint64_t cnt = 0;
+    // static uint64_t cnt = 0;
     /* 按页遍历内存区域*/
     for (uint64_t i = 0; i < len; i += PAGE_SIZE)
     {
         pte_t *temp_pte = walk_page_table(kernel_root_pte_pa, va + i, true);
         /* 映射*/
-        //early_printf("va = %lx, cnt = %lu\n", va + i, ++cnt);
+        // early_printf("va = %lx, cnt = %lu\n", va + i, ++cnt);
         *temp_pte = (Pa2Pte(pa + i) | perm | PTE_V);
     }
     /* 当前不支持大页映射*/
@@ -204,7 +261,8 @@ static void mem_test(void)
         pte = pt_check(kernel_root_pte_pa, va);
         if (Pte2Pa(pte) != va)
         {
-            early_printf("[JaeOS]Virtual Memory Init Failed.\n");
+            /* 应该用pa比较，但是va = pa*/
+            early_printf("[JaeOS]Kernel Virtual Memory Init Failed.\n");
             while (1)
                 ;
         }
@@ -232,11 +290,13 @@ void vm_enable(void)
  */
 void vmm_init(void)
 {
+    /* 初始化锁*/
+    mutex_init(&kvm_lock, "kvm_mutex", MUTEX_TYPE_SPIN);
     /* 获取内核虚拟地址空间的根页表*/
     /* 根页表只有一个页表项，这里直接获取跟页表项的PPN(物理地址)*/
     /* 根页表pte指向的物理页必须是4KB对齐，在初始化pmm时，已经确保了所有物理页地址都是4KB对齐*/
-    kernel_root_pte_pa = Page2Pa(alloc_pt_page());
-    early_printf("[JaeOS]kernel_root_pt:%016lX\n", kernel_root_pte_pa);
+    kernel_root_pte_pa = Page2Pa(alloc_k_page());
+    printf("[JaeOS]kernel_root_pt:%016lX\n", kernel_root_pte_pa);
 
     /* MMIO，内存映射I/O*/
     /* 硬件MMIO：将硬件设备的寄存器或内存映射到物理地址空间中，使得CPU可以直接通过内存读写指令访问硬件设备，这一步主要由硬件厂商负责*/
@@ -244,41 +304,41 @@ void vmm_init(void)
     /* 采用直接映射的方式，即物理地址映射到相同的虚拟地址，便于驱动访问*/
 
     /* 映射UART(确保地址4KB对齐)*/
-    early_printf("[JaeOS]UART0_BASE:0x%lX\n", UART0_BASE);
+    printf("[JaeOS]UART0_BASE:0x%lX\n", UART0_BASE);
     map_pa2va(UART0_BASE, UART0_BASE, PAGE_SIZE, PTE_R | PTE_W);
-    early_printf("[JaeOS]UART0 Map Successful.\n\n");
+    printf("[JaeOS]UART0 Map Successful.\n\n");
 
     /* 映射VirtIO_0(1页大小)*/
-    early_printf("[JaeOS]VIRTIO_0_BASE:0x%lX\n", VIRTIO_0_BASE);
+    printf("[JaeOS]VIRTIO_0_BASE:0x%lX\n", VIRTIO_0_BASE);
     map_pa2va(VIRTIO_0_BASE, VIRTIO_0_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
-    early_printf("[JaeOS]VIRTIO_0 Map Successful.\n\n");
+    printf("[JaeOS]VIRTIO_0 Map Successful.\n\n");
 
     /* 映射RTC(1页大小)*/
-    early_printf("[JaeOS]RTC_BASE:0x%lX\n", RTC_BASE);
+    printf("[JaeOS]RTC_BASE:0x%lX\n", RTC_BASE);
     map_pa2va(RTC_BASE, RTC_BASE, PAGE_SIZE * 1, PTE_R | PTE_W);
-    early_printf("[JaeOS]RTC Map Successful.\n\n");
+    printf("[JaeOS]RTC Map Successful.\n\n");
 
     /* 映射中断控制器PLIC(4MB)*/
-    early_printf("[JaeOS]PLIC_BASE:0x%lX\n", PLIC_BASE);
+    printf("[JaeOS]PLIC_BASE:0x%lX\n", PLIC_BASE);
     map_pa2va(PLIC_BASE, PLIC_BASE, PAGE_SIZE * 1024, PTE_R | PTE_W);
-    early_printf("[JaeOS]PLIC Map Successful.\n\n");
+    printf("[JaeOS]PLIC Map Successful.\n\n");
 
     /* 内核代码段*/
-    early_printf("[JaeOS]KERNEL_TEXT_BASE:0x%lX\n", KERNEL_TEXT_BASE);
+    printf("[JaeOS]KERNEL_TEXT_BASE:0x%lX\n", KERNEL_TEXT_BASE);
     map_pa2va(KERNEL_TEXT_BASE, KERNEL_TEXT_BASE, KERNEL_TEXT_SIZE, PTE_R | PTE_X);
-    early_printf("[JaeOS]KERNEL_TEXT Map Successful.\n\n");
+    printf("[JaeOS]KERNEL_TEXT Map Successful.\n\n");
 
     /* 内核数据段*/
-    early_printf("[JaeOS]KERNEL_DATA_BASE:0x%lX\n", KERNEL_DATA_BASE);
-    map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, KERNEL_DATA_SIZE, PTE_R | PTE_W);
-    early_printf("[JaeOS]KERNEL_DATA Map Successful.\n\n");
+    printf("[JaeOS]KERNEL_DATA_BASE:0x%lX\n", KERNEL_DATA_BASE);
+    map_pa2va(KERNEL_DATA_BASE, KERNEL_DATA_BASE, (mem_info.size + 0x80000000) - KERNEL_DATA_BASE, PTE_R | PTE_W);
+    printf("[JaeOS]KERNEL_DATA Map Successful.\n\n");
 
     mem_test();
 }
 /**
  * @brief 修改已有映射或添加映射
  *
- * @param pt 根页表物理地址
+ * @param pt 根页表地址
  * @param va 虚拟地址
  * @param pa 物理地址
  * @param perm 页权限
@@ -286,9 +346,11 @@ void vmm_init(void)
  */
 err_t pt_map(uint64_t pt_address, uint64_t va, uint64_t pa, uint64_t perm)
 {
-    // mtx_lock(&kvmlock);
+    mutex_lock(&kvm_lock);
     /* 遍历页表尝试获得va对应的页表项地址(没有则创建)*/
     pte_t *pte = walk_page_table(pt_address, va, true);
+    printf("vma: %lx, pma: %lx\n", va, pa);
+    printf("pte address:%p, pte val: %lx\n", pte, *pte);
     if (*pte & PTE_V)
     {
         /* 原页表项有效时，修改映射(此时不应该是添加被动映射)*/
@@ -312,11 +374,11 @@ err_t pt_map(uint64_t pt_address, uint64_t va, uint64_t pa, uint64_t perm)
     {
         /* 原页表项无效，添加有效映射，外部已申请了页面*/
         if (pa < pm_start)
-        pte_modify(pte, Pa2Pte(pa) | perm | PTE_V);
+            pte_modify(pte, Pa2Pte(pa) | perm | PTE_V);
     }
 
     /* 刷新TLB*/
     tlb_flush(va);
-    //mtx_unlock(&kvmlock);
+    mutex_unlock(&kvm_lock);
     return 0;
 }

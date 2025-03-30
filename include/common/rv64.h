@@ -170,6 +170,11 @@ static inline uint64_t disable_si(void)
 	return (ret & (SSTATUS_SIE_MASK));
 	/* 返回之前SIE域的值*/
 }
+/**
+ * @brief 开启S-Mode Interrupt
+ *
+ * @return uint64_t
+ */
 static inline uint64_t enable_si(void)
 {
 	/* csrrs，原子读-置位-写指令，i表示立即数*/
@@ -178,6 +183,45 @@ static inline uint64_t enable_si(void)
 	asm volatile("csrrsi %[ret], sstatus, %[sie_mask]" : [ret] "=&r"(ret) : [sie_mask] "i"(SSTATUS_SIE_MASK));
 	return (ret & (SSTATUS_SIE_MASK));
 	/* 返回之前SIE域的值*/
+}
+/**
+ * @brief 恢复sstatus之前的值
+ *
+ * @param sie
+ */
+static inline void restore_si(uint64_t sie)
+{
+	if (sie)
+	{
+		asm volatile("csrs sstatus, %0" : : "r"(SSTATUS_SIE_MASK));
+	}
+	else
+	{
+		asm volatile("csrc sstatus, %0" : : "r"(SSTATUS_SIE_MASK));
+	}
+}
+/**
+ * @brief 读取sstatus的值
+ * 
+ * @return uint64_t 
+ */
+static inline uint64_t read_sstatus(void)
+{
+	uint64_t val;
+	asm volatile("csrr %[val], sstatus" : [val] "=r"(val));
+	return val;
+}
+/**
+ * @brief 判断当前的中断状态
+ * 
+ * @return uint64_t 
+ *         0：中断关闭
+ *         1: 中断开启
+ */
+static inline uint64_t get_si(void)
+{
+	uint64_t val = read_sstatus();
+	return val & SSTATUS_SIE_MASK;
 }
 /**
  * @brief 获取中断/异常原因: |63|62------0|
@@ -202,8 +246,8 @@ static inline uint64_t read_scause(void)
 
 /**
  * @brief 读取时钟计数器的值
- * 
- * @return uint64_t 
+ *
+ * @return uint64_t
  */
 static inline uint64_t read_rdtime(void)
 {

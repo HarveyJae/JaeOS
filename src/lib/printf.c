@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include "common/types.h"
 #include "dev/uart.h"
-
+#include "lock/mutex.h"
 static void print_char(char ch, int32_t length, int32_t ladjust)
 {
     int32_t i;
@@ -388,19 +388,45 @@ void early_printf(const char *fmt, ...)
     va_end(ap);
 }
 /**
+ * @brief printf函数初始化
+ * 
+ */
+void printf_init(void)
+{
+    /* 不可重入*/
+    mutex_init(&pr_lock, "printf_mutex", MUTEX_TYPE_SPIN);
+}
+/**
+ * @brief printf函数(支持互斥锁)
+ * 
+ * @param fmt 
+ * @param ... 
+ */
+void printf(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+
+    mutex_lock(&pr_lock);
+    vprintfmt(fmt, ap);
+    mutex_unlock(&pr_lock);
+
+    va_end(ap);
+}
+/**
  * @brief 打印系统logo，内核启动完毕后打印
  * 
  */
 void logo_init(void)
 {
-    early_printf("\n"); 
-	early_printf("        JJJ         AAAAA  EEEEEEEEEE        .\"OOOOOOO\".    .SSSSSSSS.\n");
-	early_printf("        JJJ        AA  AA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
-	early_printf("        JJJ       AA   AA  EEE              OOO       OOO  SSSS.\n");
-	early_printf("        JJJ      AAA   AA  EEEEEEEEEE       OOO       OOO   \"SSSSS.\n");
-	early_printf("        JJJ     AAA    AA  EEEEEEEEEE       OOO       OOO      \"SSSS.\n");
-	early_printf(" JJ     JJJ    AAAAAAAAAA  EEE              OOO       OOO        \"SSS\n");
-	early_printf(" JJJJJJJJJJ   AAAA    AAA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
-	early_printf(" JJJJJJJJJJ  AAAAA    AAA  EEEEEEEEEE        \".OOOOOOO.\"     \"SSSSSSSS\"\n");
-	early_printf("\n");
+    printf("\n"); 
+	printf("        JJJ         AAAAA  EEEEEEEEEE        .\"OOOOOOO\".    .SSSSSSSS.\n");
+	printf("        JJJ        AA  AA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
+	printf("        JJJ       AA   AA  EEE              OOO       OOO  SSSS.\n");
+	printf("        JJJ      AAA   AA  EEEEEEEEEE       OOO       OOO   \"SSSSS.\n");
+	printf("        JJJ     AAA    AA  EEEEEEEEEE       OOO       OOO      \"SSSS.\n");
+	printf(" JJ     JJJ    AAAAAAAAAA  EEE              OOO       OOO        \"SSS\n");
+	printf(" JJJJJJJJJJ   AAAA    AAA  EEE              OOO\"     \"OOO  SSSS    SSSS\n");
+	printf(" JJJJJJJJJJ  AAAAA    AAA  EEEEEEEEEE        \".OOOOOOO.\"     \"SSSSSSSS\"\n");
+	printf("\n");
 }

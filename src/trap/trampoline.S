@@ -1,9 +1,4 @@
 #include "trap/trapframe.h"
-#include <asm/trapframe.h>
-#include <riscv.h>
-#include <mm/memlayout.h>
-
-
 # 该段在用户态和内核态均有映射，因此不应该使用内核地址或用户地址:TRAMPOLINE和TRAPFRAME
 .section .trampoline
 .globl trampoline

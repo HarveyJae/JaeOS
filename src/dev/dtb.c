@@ -17,6 +17,9 @@
 
 /* 全局地址 */
 MEM_INFO mem_info;
+
+/* dtb入口地址*/
+uint64_t dtb_entry;
 /**
  * @brief 获取big-endian编码的文件数据，最大支持64数据
  *
@@ -72,20 +75,20 @@ static void dtb_head_parse(FDT_Head *fdt_head)
     /* 验证设备树头部 */
     if (fdt_head->magic != FDT_MAGIC)
     {
-        early_printf("[Error]: Invalid DTB Magic 0x%x\n", fdt_head->magic);
+        printf("[Error]: Invalid DTB Magic 0x%x\n", fdt_head->magic);
         /* 设备树非法*/
         while (1)
             ;
     }
     /* 打印dtb头部信息*/
-    early_printf("[JaeOS]DTB Header:\n");
-    early_printf("       Magic Number:                     0x%X\n", fdt_head->magic);             /* 0xD00DFEED*/
-    early_printf("       Total Size:                       0x%X (bytes)\n", fdt_head->totalsize); /* 0x16EE*/
-    early_printf("       Version:                          %u\n", fdt_head->version);             /* 17*/
-    early_printf("       Boot CpuID:                       %u\n", fdt_head->boot_cpuid_phys);     /* 0*/
-    early_printf("       Struct Offset:                    0x%X\n", fdt_head->dt_struct_offset);  /* 0x38*/
-    early_printf("       String Offset:                    0x%X\n", fdt_head->dt_strings_offset); /* 0x11E4*/
-    early_printf("       Memrsv Offset:                    0x%X\n", fdt_head->mem_rsvmap_offset); /* 0x28*/
+    printf("[JaeOS]DTB Header:\n");
+    printf("       Magic Number:                     0x%X\n", fdt_head->magic);             /* 0xD00DFEED*/
+    printf("       Total Size:                       0x%X (bytes)\n", fdt_head->totalsize); /* 0x16EE*/
+    printf("       Version:                          %u\n", fdt_head->version);             /* 17*/
+    printf("       Boot CpuID:                       %u\n", fdt_head->boot_cpuid_phys);     /* 0*/
+    printf("       Struct Offset:                    0x%X\n", fdt_head->dt_struct_offset);  /* 0x38*/
+    printf("       String Offset:                    0x%X\n", fdt_head->dt_strings_offset); /* 0x11E4*/
+    printf("       Memrsv Offset:                    0x%X\n", fdt_head->mem_rsvmap_offset); /* 0x28*/
 }
 /**
  * @brief 从字符串表中获取属性名称(起始地址)
@@ -119,7 +122,7 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
     if (token != FDT_BEGIN_NODE)
     {
         /* 错误检查*/
-        early_printf("[Error]: Expected FDT_BEGIN_NODE 0x%08X\n", token);
+        printf("[Error]: Expected FDT_BEGIN_NODE 0x%08X\n", token);
         return NULL;
     }
 
@@ -140,8 +143,8 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
     ptr = (uint8_t *)ADDRALIGNUP((uint64_t)ptr, 4);
 
     /* 打印node*/
-    early_printf("       [Node]%s:\n", node_name);
-    early_printf("         <Parent Node>:%s\n", parent);
+    printf("       [Node]%s:\n", node_name);
+    printf("         <Parent Node>:%s\n", parent);
 
     /* 解析属性和子节点*/
     while (ptr < dtb_end)
@@ -167,13 +170,13 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
             uint64_t _start = get_big_endian_data(prop_data, sizeof(uint64_t));
             uint64_t _size = get_big_endian_data(prop_data + 8, sizeof(uint64_t));
             /* 打印属性信息*/
-            early_printf("         <Prop>%s:", prop_name);
+            printf("         <Prop>%s:", prop_name);
             /* 填充space*/
             for (uint8_t i = 0; i < prop_width - strlen((const char *)prop_name); i++)
             {
-                early_printf(" ");
+                printf(" ");
             }
-            early_printf("Start'0x%016X'  Size'0x%016x'\n",_start, _size);
+            printf("Start'0x%016X'  Size'0x%016x'\n",_start, _size);
             /* 处理特定属性:全局内存布局*/
             if (strcmp((const char *)node_name, "memory@80000000") == 0 && strcmp((const char *)prop_name, "reg") == 0)
             {
@@ -201,7 +204,7 @@ static uint8_t *dtb_node_parse(FDT_Head *fdt_head, uint8_t *ptr, uint8_t *parent
         }
         default:
         {
-            early_printf("[Error]: Expected token 0x%08X\n", token);
+            printf("[Error]: Expected token 0x%08X\n", token);
             return NULL;
         }
         }
@@ -219,13 +222,13 @@ static void dtb_mem_rsvmap_parse(FDT_Head *fdt_head)
     /* rsvmp的起始地址*/
     uint8_t *mem_rsvmap = (uint8_t *)fdt_head + fdt_head->mem_rsvmap_offset;
 
-    early_printf("[JaeOS]Reserved Memory Map:\n");
+    printf("[JaeOS]Reserved Memory Map:\n");
     while (1)
     {
         uint64_t address = get_big_endian_data(mem_rsvmap, sizeof(uint64_t));
         uint64_t size = get_big_endian_data(mem_rsvmap + 8, sizeof(uint64_t));
 
-        early_printf("       [%2d]Reserved Physical Memory Start at 0x%016lX, Size 0x%lX\n", index++, address, size);
+        printf("       [%2d]Reserved Physical Memory Start at 0x%016lX, Size 0x%lX\n", index++, address, size);
         if (address == 0 && size == 0)
         {
             break;
@@ -242,7 +245,7 @@ static void dtb_mem_rsvmap_parse(FDT_Head *fdt_head)
 void dtb_prase(uint64_t _dtb_entry)
 {
     /* 打印dtb的物理地址*/
-    early_printf("[JaeOS]DTB Entry Address: 0x%lX.\n", _dtb_entry);
+    printf("[JaeOS]DTB Entry Address: 0x%lX.\n", _dtb_entry);
     FDT_Head *fdt_h = (FDT_Head *)_dtb_entry;
 
     /* 解析设备树头*/
@@ -254,10 +257,10 @@ void dtb_prase(uint64_t _dtb_entry)
     /* 获取设备树节点结构的起始地址*/
     uint8_t *struct_node = (uint8_t *)(fdt_h) + fdt_h->dt_struct_offset;
     /* 递归解析设备树节点*/
-    early_printf("[JaeOS]DTB Struct Node:\n");
+    printf("[JaeOS]DTB Struct Node:\n");
     dtb_node_parse(fdt_h, struct_node, (uint8_t *)"/", 0);
 
     /* 打印全局内存信息*/
-    early_printf("[JaeOS]Memory Info:\n");
-    early_printf("       Start: 0x%016lX, Size:%lu MB\n", mem_info.start, mem_info.size / 1024 / 1024);
+    printf("[JaeOS]Memory Info:\n");
+    printf("       Start: 0x%016lX, Size:%lu MB\n", mem_info.start, mem_info.size / 1024 / 1024);
 }

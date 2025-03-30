@@ -25,8 +25,9 @@ void page_ref_inc(Page *_page);
 void page_ref_dec(Page *_page);
 /* data*/
 extern uint64_t pm_start; /* 内存页起始物理地址*/
-extern int64_t page_num; /* 内存页数量*/
+extern int64_t page_num;  /* 内存页数量*/
 extern Page *pages;       /* 内存页数组*/
+extern void *kstacks;     /* 内核栈基地址*/
 
 /* 接口函数*/
 /**
@@ -64,6 +65,5 @@ static inline uint64_t __attribute__((warn_unused_result)) pmTop()
 {
     return pm_start + (page_num * PAGE_SIZE);
 }
-
 
 #endif /* !__MMU_PMM__H__*/

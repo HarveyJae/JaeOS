@@ -6,7 +6,7 @@
 #include "lib/queue.h"
 #include "trap/trap.h"
 #include "lock/mutex.h"
-#define MAX_PROC_NUM (256) /* 最大线程数量*/
+#define MAX_PROC_NUM (128) /* 最大进程数量*/
 
 /**
  * @brief 进程状态枚举
@@ -39,7 +39,8 @@ typedef struct
  */
 typedef struct proc
 {
-    mutex_t p_lock;           /* 进程锁*/
+    struct mutex *p_lock;     /* 进程锁(需要分配内存)*/
+    uint64_t mutex_index;     /* mutex在mutexs中的索引*/
     LIST_ENTRY(struct proc)   /* 拼接注释*/
     p_list;                   /* 进程空闲链表entry*/
     TAILQ_HEAD(struct thread) /* 拼接注释*/
@@ -47,7 +48,7 @@ typedef struct proc
     state_t p_status;         /* 进程状态*/
     pid_t p_pid;              /* 进程id*/
     uintptr_t p_brk;          /* 进程的堆顶地址*/
-    pte_t *p_pt;              /* 进程用户态页表*/
+    uintptr_t p_pt;           /* 进程页表根地址*/
     trapframe_t *p_trapframe; /* 用户态上下文指针*/
     err_t p_exitcode;         /* 进程退出码*/
     times_t p_times;          /* 进程运行时间(清零起始地址p_startzero_addr)*/
@@ -67,8 +68,9 @@ typedef struct proclist
 {
     LIST_HEAD(proc_t) /* 拼接注释*/
     pl_list;          /* 进程队列*/
-    mutex_t pl_lock;  /* 全局锁*/
-
 } proclist_t;
 
+/* functions*/
+/* data*/
+extern proc_t *procs;
 #endif /* !__PROC__H__*/

@@ -1,0 +1,4 @@
+set(LOCK_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/mutex.c
+    PARENT_SCOPE
+)

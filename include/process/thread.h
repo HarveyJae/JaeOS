@@ -4,19 +4,21 @@
 #include "common/types.h"
 #include "lib/list.h"
 #include "lib/queue.h"
-#include "lock/mutex.h"
 #include "process/proc.h"
+#include "lock/mutex.h"
 #include "signal/signal.h"
 #define MAX_PATH_LEN (128)
 #define MAX_THREAD_NAME_LEN (MAX_PATH_LEN + 1) /* 最大线程名*/
 #define MAX_THREAD_NUM (256)				   /* 最大线程数量*/
+
 /**
  * @brief 线程结构体
  *
  */
 typedef struct thread
 {
-	mutex_t td_lock;				   /* 线程锁*/
+	struct mutex *td_lock;			   /* 线程锁(需要分配内存)*/
+	uint64_t mutex_index;			   /* mutex在mutexs中的索引*/
 	proc_t *td_proc;				   /* 线程所属进程*/
 	TAILQ_ENTRY(struct thread)		   /* 拼接注释*/
 	td_plist;						   /* 所属进程的线程链表entry*/
@@ -54,7 +56,10 @@ typedef struct
 {
 	TAILQ_HEAD(thread_t) /* 拼接注释*/
 	tq_head;			 /* 线程队列*/
-	mutex_t tq_lock;	 /* 全局锁*/
 } threadq_t;
 
+/* functions*/
+void thread_init(void);
+/* data*/
+extern thread_t *threads;
 #endif /* !__PROCESS_THREAD__H__*/

@@ -164,4 +164,5 @@ void vm_enable(void);
 err_t pt_map(uint64_t pt_address, uint64_t va, uint64_t pa, uint64_t perm);
 /* data*/
 extern uint64_t kernel_root_pte_pa;
+extern uint64_t kernel_root_pte_va;
 #endif /* !__MMU_VMM__H__*/

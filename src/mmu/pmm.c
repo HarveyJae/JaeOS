@@ -5,6 +5,9 @@
 #include "lib/printf.h"
 #include "lib/string.h"
 #include "driver/virtio.h"
+#include "process/thread.h"
+#include "process/proc.h"
+#include "lock/mutex.h"
 /**
  * @brief 可用物理内存的起始地址
  *
@@ -35,6 +38,11 @@ Page *pages = NULL;
  *
  */
 PageList free_list;
+/**
+ * @brief 内核栈基地址
+ *
+ */
+void *kstacks;
 
 extern char end[]; /* .ld文件中定义的堆栈起始地址(JaeOS不区分堆栈)*/
 /**
@@ -91,22 +99,18 @@ Page *alloc_pt_page(void)
     Page *page = free_list.next;
     while (page->next != &free_list)
     {
-        /* 判断分配地址是否在PAGE_TABLE_BASE -> PAGE_TABLE_END区间内*/
-        if (Page2Pa(page) > PAGE_TABLE_BASE && Page2Pa(page) <= PAGE_TABLE_END)
-        {
-            /* 若free_list中存在空闲页，但不在这个范围内，也不会导致死循环*/
-            /* 循环判断条件在第一次遇到free_list的时候终止*/
-            /* 分配*/
-            page->prev->next = page->next;  // 前驱节点指向后继
-            page->next->prev = page->prev;  // 后继节点指向前驱
-            page->next = page->prev = NULL; // 隔离已分配页
+        /* 若free_list中存在空闲页，但不在这个范围内，也不会导致死循环*/
+        /* 循环判断条件在第一次遇到free_list的时候终止*/
+        /* 分配*/
+        page->prev->next = page->next;  // 前驱节点指向后继
+        page->next->prev = page->prev;  // 后继节点指向前驱
+        page->next = page->prev = NULL; // 隔离已分配页
 
-            /* 分配前清空当前页的数据*/
-            memset((void *)Page2Pa(page), 0, PAGE_SIZE);
-            /* 更新剩余页状态*/
-            __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
-            return page;
-        }
+        /* 分配前清空当前页的数据*/
+        memset((void *)Page2Pa(page), 0, PAGE_SIZE);
+        /* 更新剩余页状态*/
+        __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
+        return page;
         /* 更新page*/
         page = page->next;
     }
@@ -123,20 +127,16 @@ Page *alloc_k_page(void)
     Page *page = free_list.next;
     while (page->next != &free_list)
     {
-        /* 判断分配地址是否在PAGE_TABLE_BASE -> PAGE_TABLE_END区间内*/
-        if (Page2Pa(page) > KERNEL_DATA_BASE && Page2Pa(page) <= KERNEL_DATA_END)
-        {
-            /* 分配*/
-            page->prev->next = page->next;  // 前驱节点指向后继
-            page->next->prev = page->prev;  // 后继节点指向前驱
-            page->next = page->prev = NULL; // 隔离已分配页
+        /* 分配*/
+        page->prev->next = page->next;  // 前驱节点指向后继
+        page->next->prev = page->prev;  // 后继节点指向前驱
+        page->next = page->prev = NULL; // 隔离已分配页
 
-            /* 分配前清空当前页的数据*/
-            memset((void *)Page2Pa(page), 0, PAGE_SIZE);
-            /* 更新剩余页状态*/
-            __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
-            return page;
-        }
+        /* 分配前清空当前页的数据*/
+        memset((void *)Page2Pa(page), 0, PAGE_SIZE);
+        /* 更新剩余页状态*/
+        __atomic_fetch_sub(&leftpage_num, 1, __ATOMIC_RELAXED);
+        return page;
         /* 更新page*/
         page = page->next;
     }
@@ -233,11 +233,14 @@ void pmm_init(void)
     /* 初始化内存页数组*/
     pages = pm_init(freemem_start_addr, page_num * sizeof(Page), &freemem_start_addr, "Physical Memory Page Array");
 
-    // 进程管理模块的数组
-    // extern proc_t *procs;
-    // procs = pmInitPush(freemem, NPROC * sizeof(proc_t), &freemem);
-    // extern thread_t *threads;
-    // threads = pmInitPush(freemem, NTHREAD * sizeof(thread_t), &freemem);
+    /* 全局线程数组*/
+    threads = pm_init(freemem_start_addr, MAX_THREAD_NUM * sizeof(thread_t), &freemem_start_addr, "Global Thread Array");
+    /* 全局进程数组*/
+    procs = pm_init(freemem_start_addr, MAX_PROC_NUM * sizeof(proc_t), &freemem_start_addr, "Global Proc Array");
+
+    /* 全局mutex数组*/
+    mutexs = pm_init(freemem_start_addr, (MAX_PROC_NUM + MAX_THREAD_NUM) * sizeof(mutex_t), &freemem_start_addr, "Global Mutex Array");
+
     // extern void *sigactions;
     // sigactions = pmInitPush(freemem, NPROCSIGNALS * NPROC * sizeof(sigaction_t), &freemem);
     // extern void *sigevents;
@@ -252,9 +255,8 @@ void pmm_init(void)
     // extern void *bufferGroups;
     // bufferGroups = pmInitPush(freemem, BGROUP_NUM * sizeof(BufferGroup), &freemem);
 
-    // 为内核栈分配内存
-    // extern void *kstacks;
-    // kstacks = pmInitPush(freemem, NPROC * TD_KSTACK_PAGE_NUM * PAGE_SIZE, &freemem);
+    /* 内核栈内存*/
+    kstacks = pm_init(freemem_start_addr, MAX_THREAD_NUM * TD_KSTACK_SIZE, &freemem_start_addr, "Kernel Stack");
 
     /* 确保freemem_start_addr 4KB对齐*/
     freemem_start_addr = (uint64_t)ADDRALIGNUP(freemem_start_addr, PAGE_SIZE);
@@ -266,7 +268,7 @@ void pmm_init(void)
     {
         pages[i].ref = 1;
     }
-    early_printf("[JaeOS]Physical Memory Pages[0:%d] used\n", usedpage_num - 1);
+    printf("[JaeOS]Physical Memory Pages[0:%d] used\n", usedpage_num - 1);
     /* 添加空闲页到空闲链表*/
     for (uint64_t i = usedpage_num; i < page_num; i++)
     {
@@ -276,6 +278,6 @@ void pmm_init(void)
     }
     /* 未使用的内存页数量*/
     leftpage_num = page_num - usedpage_num;
-    early_printf("[JaeOS]Physical Memory Pages[%d:%d] left\n", usedpage_num, page_num - 1);
-    early_printf("[JaeOS]Physical Memory Init Finished\n");
+    printf("[JaeOS]Physical Memory Pages[%d:%d] left\n", usedpage_num, page_num - 1);
+    printf("[JaeOS]Physical Memory Init Finished\n");
 }
