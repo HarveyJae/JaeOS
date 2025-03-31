@@ -394,7 +394,7 @@ void early_printf(const char *fmt, ...)
 void printf_init(void)
 {
     /* 不可重入*/
-    mutex_init(&pr_lock, "printf_mutex", MUTEX_TYPE_SPIN);
+    mutex_init(&pr_lock, "printf_lock", MUTEX_TYPE_SPIN);
 }
 /**
  * @brief printf函数(支持互斥锁)

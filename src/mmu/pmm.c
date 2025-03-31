@@ -7,6 +7,7 @@
 #include "driver/virtio.h"
 #include "process/thread.h"
 #include "process/proc.h"
+#include "signal/signal.h"
 #include "lock/mutex.h"
 /**
  * @brief 可用物理内存的起始地址
@@ -241,10 +242,11 @@ void pmm_init(void)
     /* 全局mutex数组*/
     mutexs = pm_init(freemem_start_addr, (MAX_PROC_NUM + MAX_THREAD_NUM) * sizeof(mutex_t), &freemem_start_addr, "Global Mutex Array");
 
-    // extern void *sigactions;
-    // sigactions = pmInitPush(freemem, NPROCSIGNALS * NPROC * sizeof(sigaction_t), &freemem);
-    // extern void *sigevents;
-    // sigevents = pmInitPush(freemem, NSIGEVENTS * sizeof(sigevent_t), &freemem);
+    /* 全局信号动作数组*/
+    sigactions = pm_init(freemem_start_addr, MAX_THREAD_NUM * MAX_SIGNAL_NUM * sizeof(sigaction_t), &freemem_start_addr, "Global Signal Actions Array");
+
+    /* 全局信号事件数组*/
+    sigevents = pm_init(freemem_start_addr, MAX_SIGEVENT_NUM * sizeof(sigevent_t), &freemem_start_addr, "Global Signal Event Array");
 
     /* 初始化virt io*/
     // virtio_buffer = pm_init(freemem_start_addr, 2 * PAGE_SIZE, &freemem_start_addr, "Virt IO Buffer");

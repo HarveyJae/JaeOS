@@ -9,6 +9,7 @@
 #include "dev/timer.h"
 #include "dev/plic.h"
 #include "process/thread.h"
+#include "process/proc.h"
 extern char end[]; /* .ld文件中定义的堆起始地址(JaeOS不区分堆栈)*/
 uint64_t hart_id;
 /**
@@ -66,6 +67,14 @@ int main()
         /* 初始化线程*/
         thread_init();
         printf("\n[JaeOS]Thread Init Successful.\n");
+
+        /* 初始化进程*/
+        proc_init();
+        printf("\n[JaeOS]Process Init Successful.\n");
+
+        /* 初始化信号*/
+        signal_init();
+        printf("\n[JaeOS]Signal Init Successful.\n");
         /* Logo打印放到最后*/
         logo_init();
     }

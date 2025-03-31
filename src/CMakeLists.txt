@@ -9,6 +9,7 @@ add_subdirectory(trap)
 add_subdirectory(lock)
 add_subdirectory(cpu)
 add_subdirectory(process)
+add_subdirectory(signal)
 add_library(__main__ OBJECT "")
 target_sources(__main__ 
 	PRIVATE
@@ -21,6 +22,7 @@ target_sources(__main__
 	${LOCK_SOURCES}
 	${CPU_SOURCES}
 	${PROCESS_SOURCES}
+	${SIGNAL_SOURCES}
 )
 target_compile_options(__main__
 	PRIVATE

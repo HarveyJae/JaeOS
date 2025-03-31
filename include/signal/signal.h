@@ -5,7 +5,8 @@
 #include "trap/trap.h"
 #include "lib/queue.h"
 
-#define MAX_SIGNAL_NUM 128 /* 支持的最大信号数量*/
+#define MAX_SIGNAL_NUM 128   /* 支持的最大信号数量*/
+#define MAX_SIGEVENT_NUM 256 /* 支持的最大信号事件数*/
 
 typedef union
 {
@@ -15,7 +16,7 @@ typedef union
 
 /**
  * @brief 信号集合
- * 
+ *
  */
 typedef struct
 {
@@ -68,4 +69,42 @@ typedef struct sigevent
     se_link;                     /* 内核管理的信号事件队列成员*/
 } sigevent_t;
 
+/**
+ * @brief 信号队列类型定义
+ *
+ */
+typedef struct
+{
+    TAILQ_HEAD(sigevent_t) /* 拼接注释*/
+    tq_head;               /* 信号事件队列*/
+} sigeventq_t;
+
+/**
+ * @brief 引用自musl的k_sigaction结构体
+ *        声明信号动作
+ *
+ */
+typedef struct
+{
+    void (*sa_handler)(int);
+    uint64_t sa_flags;
+    void (*sa_restorer)(void);
+    sigset_t sa_mask;
+} sigaction_t;
+
+/**
+ * @brief 信号动作集合(每个线程对应一组动作集合)
+ * 
+ */
+typedef struct
+{
+    sigaction_t handler[MAX_SIGNAL_NUM];
+} sighandler_set_t;
+
+
+/* data*/
+extern sigevent_t *sigevents;
+extern sighandler_set_t *sigactions;
+/* functions*/
+void signal_init(void);
 #endif /* !__SIGNAL_SIGNAL__H__*/

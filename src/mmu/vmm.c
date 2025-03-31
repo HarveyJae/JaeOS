@@ -121,27 +121,27 @@ static void pte_modify(pte_t *pte, pte_t value)
  * @param now_pt 当前页表
  * @param pt_level 当前页表所属层级
  */
-static void pt_mapself(pte_t *root_pt, pte_t *now_pt, uint8_t pt_level)
-{
-    if (pt_level == PT_LEVEL_2)
-    {
-        /* 当前处理的是根页表*/
-        /* 获取根页表物理地址，并转换成pte*/
-        uint64_t root_pt_pa = (uint64_t)now_pt;
-        pte_t pte_l2 = Pa2Pte(root_pt_pa);
-        /* 获取vpn2字段，这个值需要自行配置*/
-        uint64_t vpn_2 = ((root_pt_pa << 1) >> (PAGE_SHIFT + PT_INDEX_LEN * 2)) & PT_INDEX_MASK;
-        /* 映射：写入索引vpn2对应的pte(vpn1/vpn0同)*/
-        pte_t *current_pte = root_pt + vpn_2;
-        *current_pte = pte_l2 | PTE_V | PTE_R | PTE_W;
-        /* 合成虚拟地址*/
-        kernel_root_pte_va = (vpn_2 << (PAGE_SHIFT + PT_INDEX_LEN * 2)) | (vpn_2 << (PAGE_SHIFT + PT_INDEX_LEN)) | (vpn_2 << PAGE_SHIFT);
-        return;
-    }
-    /* 暂不需要自映射其他页表地址*/
-    while (1)
-        ;
-}
+// static void pt_mapself(pte_t *root_pt, pte_t *now_pt, uint8_t pt_level)
+// {
+//     if (pt_level == PT_LEVEL_2)
+//     {
+//         /* 当前处理的是根页表*/
+//         /* 获取根页表物理地址，并转换成pte*/
+//         uint64_t root_pt_pa = (uint64_t)now_pt;
+//         pte_t pte_l2 = Pa2Pte(root_pt_pa);
+//         /* 获取vpn2字段，这个值需要自行配置*/
+//         uint64_t vpn_2 = ((root_pt_pa << 1) >> (PAGE_SHIFT + PT_INDEX_LEN * 2)) & PT_INDEX_MASK;
+//         /* 映射：写入索引vpn2对应的pte(vpn1/vpn0同)*/
+//         pte_t *current_pte = root_pt + vpn_2;
+//         *current_pte = pte_l2 | PTE_V | PTE_R | PTE_W;
+//         /* 合成虚拟地址*/
+//         kernel_root_pte_va = (vpn_2 << (PAGE_SHIFT + PT_INDEX_LEN * 2)) | (vpn_2 << (PAGE_SHIFT + PT_INDEX_LEN)) | (vpn_2 << PAGE_SHIFT);
+//         return;
+//     }
+//     /* 暂不需要自映射其他页表地址*/
+//     while (1)
+//         ;
+// }
 
 /**
  * @brief 遍历虚拟地址va对应的页表，返回最终pte的指针(即va对应的物理页)，如果中间页表不存在且create_flag = true，则自动创建页表
@@ -349,8 +349,8 @@ err_t pt_map(uint64_t pt_address, uint64_t va, uint64_t pa, uint64_t perm)
     mutex_lock(&kvm_lock);
     /* 遍历页表尝试获得va对应的页表项地址(没有则创建)*/
     pte_t *pte = walk_page_table(pt_address, va, true);
-    printf("vma: %lx, pma: %lx\n", va, pa);
-    printf("pte address:%p, pte val: %lx\n", pte, *pte);
+    //printf("vma: %lx, pma: %lx\n", va, pa);
+    //printf("pte address:%p, pte val: %lx\n", pte, *pte);
     if (*pte & PTE_V)
     {
         /* 原页表项有效时，修改映射(此时不应该是添加被动映射)*/
@@ -366,7 +366,7 @@ err_t pt_map(uint64_t pt_address, uint64_t va, uint64_t pa, uint64_t perm)
         /* 原页表项无效，添加被动映射(传入的物理地址必须为零)*/
         /* 映射到物理地址0表示：延迟分配物理页，进程实际访问该虚拟地址时才分配物理页*/
         pte_modify(pte, perm);
-        // mtx_unlock(&kvmlock);
+        mutex_unlock(&kvm_lock);
         /* 直接返回，不用刷新TLB*/
         return 0;
     }

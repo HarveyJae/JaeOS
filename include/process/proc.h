@@ -71,6 +71,7 @@ typedef struct proclist
 } proclist_t;
 
 /* functions*/
+void proc_init(void);
 /* data*/
 extern proc_t *procs;
 #endif /* !__PROC__H__*/

@@ -35,5 +35,7 @@ extern mutex_t first_thread_lock;
 extern mutex_t pid_lock;
 extern mutex_t pr_lock;
 extern mutex_t kvm_lock;
+extern mutex_t sigevent_lock;
+
 extern mutex_t *mutexs;
 #endif /* !__LOCK_MUTEX__H__*/

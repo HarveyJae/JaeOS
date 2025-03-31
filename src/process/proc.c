@@ -1,3 +1,4 @@
+#include "common/types.h"
 #include "process/thread.h"
 #include "process/proc.h"
 #include "lock/mutex.h"
@@ -6,6 +7,7 @@
 #include "mmu/mmu.h"
 #include "mmu/vmm.h"
 #include "mmu/pmm.h"
+#include "lib/printf.h"
 
 proc_t *procs = NULL;     /* 全局进程数组*/
 proclist_t proc_freelist; /* 空闲进程链表*/
@@ -42,6 +44,7 @@ void proc_init(void)
         p->p_trapframe = NULL;
         /* 初始化进程的用户栈*/
         p->p_brk = 0;
+        printf("process %d\n", i);
     }
 }
 /**

@@ -40,7 +40,7 @@
 
 /**
  * @brief 头插法插入队列
- * @param head 队列头地址 
+ * @param head 队列头地址
  * @param elm 插入成员地址
  * @param field 链接字段
  */
@@ -55,4 +55,68 @@
         (elm)->field.tqe_prev = &(head)->tqh_first;                     \
     } while (0)
 
+/**
+ * @brief 队列为空
+ *        当队列为空时，返回true，否则返回false
+ * @param head 队列头地址
+ *
+ */
+#define TAILQ_EMPTY(head) ((head)->tqh_first == NULL)
+
+/**
+ * @brief 获取队列中的第一个entry
+ * @param head 队列头地址
+ *
+ */
+#define TAILQ_FIRST(head) ((head)->tqh_first)
+
+/**
+ * @brief 移除队列中的elm对应的entry
+ * @param head 队列头地址
+ * @param elm 移除成员地址
+ * @param field 链接字段
+ *
+ */
+#define TAILQ_REMOVE(head, elm, field)                                     \
+    do                                                                     \
+    {                                                                      \
+        if (((elm)->field.tqe_next) != NULL)                               \
+            (elm)->field.tqe_next->field.tqe_prev = (elm)->field.tqe_prev; \
+        else                                                               \
+            (head)->tqh_last = (elm)->field.tqe_prev;                      \
+        *(elm)->field.tqe_prev = (elm)->field.tqe_next;                    \
+    } while (0)
+
+/**
+ * @brief 将elm成员插入到listelm成员之前
+ * @param head 被插入成员地址
+ * @param elm 插入成员地址
+ * @param field 链接字段
+ */
+#define TAILQ_INSERT_BEFORE(listelm, elm, field)            \
+    do                                                      \
+    {                                                       \
+        (elm)->field.tqe_prev = (listelm)->field.tqe_prev;  \
+        (elm)->field.tqe_next = (listelm);                  \
+        *(listelm)->field.tqe_prev = (elm);                 \
+        (listelm)->field.tqe_prev = &(elm)->field.tqe_next; \
+    } while (0)
+
+/**
+ * @brief 将elm成员插入到队尾
+ * @param head 队列头地址
+ * @param elm 插入成员地址
+ * @param field 链接字段
+ */
+#define TAILQ_INSERT_TAIL(head, elm, field)        \
+    do                                             \
+    {                                              \
+        (elm)->field.tqe_next = NULL;              \
+        (elm)->field.tqe_prev = (head)->tqh_last;  \
+        *(head)->tqh_last = (elm);                 \
+        (head)->tqh_last = &(elm)->field.tqe_next; \
+    } while (/*CONSTCOND*/ 0)
+#define TAILQ_NEXT(elm, field) ((elm)->field.tqe_next)
+#define TAILQ_LAST(head, headname) (*(((struct headname *)((head)->tqh_last))->tqh_last))
+#define TAILQ_PREV(elm, headname, field) (*(((struct headname *)((elm)->field.tqe_prev))->tqh_last))
 #endif /* !__LIB_QUEUE__H__*/
